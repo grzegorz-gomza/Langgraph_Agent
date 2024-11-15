@@ -54,3 +54,8 @@ def add_to_vectorstore(texts, tables, images, text_summaries, table_summaries, i
     retriever.docstore.mset(list(zip(img_ids, images)))
 
     return retriever
+
+def retrieve_response(query, retriever):
+    # Retrieve relevant information
+    docs = retriever.invoke(query)
+    return docs 

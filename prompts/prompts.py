@@ -328,3 +328,16 @@ pdf_image_summary_guided_json = {
     "required": ["image_summary"]
 }
 
+pdf_reporter_prompt_template = """
+Answer the question based only on the following context, which can include text and the below image(s).
+Context: {context_text}
+Question: {question}
+
+You must provide your response in the following json format:
+
+    "PDF_summary": "The summary of the given context"
+    "Context": "The specific context of the given context"
+
+Current date and time:
+{datetime}
+"""

@@ -3,6 +3,10 @@
 # import os
 from termcolor import colored
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.messages import SystemMessage, HumanMessage
+from base64 import b64decode
+
 from models.openai_models import get_open_ai, get_open_ai_json
 from models.ollama_models import OllamaModel, OllamaJSONModel
 from models.vllm_models import VllmJSONModel, VllmModel
@@ -17,7 +21,8 @@ from prompts.prompts import (
     router_prompt_template,
     pdf_text_summary_prompt_template,
     pdf_table_summary_prompt_template,
-    pdf_image_summary_prompt_template
+    pdf_image_summary_prompt_template,
+    pdf_reporter_prompt_template
 )
 from utils.helper_functions import get_current_utc_datetime, check_for_content
 from states.state import AgentGraphState
@@ -262,7 +267,7 @@ class TableSummaryAgent(Agent):
         return tables_summaries
 
 class ImageSummaryAgent(Agent):
-    def invoke(self, extracted_images, prompt=pdf_image_summary_prompt_template e):
+    def invoke(self, extracted_images, prompt=pdf_image_summary_prompt_template):
         image_summary_prompt = prompt.format(
             datetime=get_current_utc_datetime()
         )
@@ -278,3 +283,72 @@ class ImageSummaryAgent(Agent):
 
         print(colored(f"Table Summary : {images_summaries}", 'Pink'))
         return images_summaries
+
+class PDFReporterAgent(Agent):
+    def __init__(self, state: AgentGraphState, retriever, prompt=pdf_reporter_prompt_template, **kwargs):
+        super().__init__(state, **kwargs)
+        self.retriever = retriever
+
+    @staticmethod
+    def parse_docs(docs):
+        """Split base64-encoded images and texts"""
+        b64 = []
+        text = []
+        for doc in docs:
+            try:
+                b64decode(doc)
+                b64.append(doc)
+            except Exception:
+                text.append(doc)
+        return {"images": b64, "texts": text}
+
+    @staticmethod
+    def build_prompt(context, question, prompt):
+        docs_by_type = parse_docs(context)
+
+        context_text = ""
+        if len(docs_by_type["texts"]) > 0:
+            context_text += ' '.join(docs_by_type["texts"])
+
+        # Construct prompt with context (including images)
+        prompt_template = prompt.format(
+            datetime=get_current_utc_datetime()
+        )
+
+        prompt_content = [{"type": "text", "text": prompt_template}]
+
+        # if len(docs_by_type["images"]) > 0:
+        #     for image in docs_by_type["images"]:
+        #         prompt_content.append(
+        #             {
+        #                 "type": "image_url",
+        #                 "image_url": {"url": f"data:image/jpeg;base64,{image}"},
+        #             }
+        #         )
+
+        return prompt_content
+
+    def invoke(self, research_question, context):
+        # Chain processing
+        doc_parse = RunnableLambda(self.parse_docs)
+        prompt_build = RunnableLambda(self.build_prompt)
+        llm = self.get_llm()
+
+        # Executing the chain
+        docs_processed = doc_parse.invoke(context)
+        prompt = prompt_build.invoke(docs_processed, research_question)
+        
+        messages = [HumanMessage(content=prompt)]
+        llm_response = llm.invoke(messages)
+        llm_response_content = llm_response.content
+
+        self.update_state("pdf_report_response", llm_response_content)
+        print(f"PDFReporter Agent Response: {llm_response_content}")
+
+        return self.state
+
+# Usage
+state = AgentGraphState()  # Assumed to be defined elsewhere
+pdf_agent = PDFReporterAgent(state=state, retriever=my_retriever, model="gpt-4o-mini", server="openai", temperature=0.5)
+
+response = pdf_agent.invoke(research_question="What is the impact of climate change on polar bears?", context=my_context)
