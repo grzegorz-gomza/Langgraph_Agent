@@ -1,6 +1,9 @@
 
 # Custom WebSearch Agent with LangGraph
 
+The following repository has been copied and is making modifications to the code, in order to change the operation of the agent and improve the frontend. 
+Below is the original message from the author of the code:
+
 ### Watch the Tutorial:
 [![Watch this video on YouTube](https://img.youtube.com/vi/R-o_a6dvzQM/0.jpg)](https://www.youtube.com/watch?v=R-o_a6dvzQM)
 
