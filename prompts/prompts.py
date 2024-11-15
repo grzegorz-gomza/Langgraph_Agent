@@ -306,13 +306,12 @@ pdf_image_summary_prompt_template = """
 You are an image summarizer. Your task is to summarize the given image extracted from a PDF file. Describe the image in detail.
 You should provide a summary that is concise and clear, highlighting the main points and key information.
 
-
-Here is the table:
+Here is the image:
 {extracted_image}
 
 You must provide your response in the following json format:
 
-    "table_summary": "The summary of the text chunk"
+    "image_summary": "The summary of the text chunk"
 
 Current date and time:
 {datetime}

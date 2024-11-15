@@ -2,6 +2,7 @@
 # import yaml
 # import os
 from termcolor import colored
+from langchain_core.output_parsers import StrOutputParser
 from models.openai_models import get_open_ai, get_open_ai_json
 from models.ollama_models import OllamaModel, OllamaJSONModel
 from models.vllm_models import VllmJSONModel, VllmModel
@@ -13,7 +14,10 @@ from prompts.prompts import (
     selector_prompt_template,
     reporter_prompt_template,
     reviewer_prompt_template,
-    router_prompt_template
+    router_prompt_template,
+    pdf_text_summary_prompt_template,
+    pdf_table_summary_prompt_template,
+    pdf_image_summary_prompt_template
 )
 from utils.helper_functions import get_current_utc_datetime, check_for_content
 from states.state import AgentGraphState
@@ -90,11 +94,11 @@ class PlannerAgent(Agent):
         ]
 
         llm = self.get_llm()
-        ai_msg = llm.invoke(messages)
-        response = ai_msg.content
+        llm_response = llm.invoke(messages)
+        llm_response_content = llm_response.content
 
-        self.update_state("planner_response", response)
-        print(colored(f"Planner 👩🏿‍💻: {response}", 'cyan'))
+        self.update_state("planner_response", llm_response_content)
+        print(colored(f"Planner 👩🏿‍💻: {llm_response_content}", 'cyan'))
         return self.state
 
 class SelectorAgent(Agent):
@@ -118,11 +122,11 @@ class SelectorAgent(Agent):
         ]
 
         llm = self.get_llm()
-        ai_msg = llm.invoke(messages)
-        response = ai_msg.content
+        llm_response = llm.invoke(messages)
+        llm_response_content = llm_response.content
 
-        print(colored(f"selector 🧑🏼‍💻: {response}", 'green'))
-        self.update_state("selector_response", response)
+        print(colored(f"selector 🧑🏼‍💻: {llm_response_content}", 'green'))
+        self.update_state("selector_response", llm_response_content)
         return self.state
 
 class ReporterAgent(Agent):
@@ -148,11 +152,11 @@ class ReporterAgent(Agent):
         ]
 
         llm = self.get_llm(json_model=False)
-        ai_msg = llm.invoke(messages)
-        response = ai_msg.content
+        llm_response = llm.invoke(messages)
+        llm_response_content = llm_response.content
 
-        print(colored(f"Reporter 👨‍💻: {response}", 'yellow'))
-        self.update_state("reporter_response", response)
+        print(colored(f"Reporter 👨‍💻: {llm_response_content}", 'yellow'))
+        self.update_state("reporter_response", llm_response_content)
         return self.state
 
 class ReviewerAgent(Agent):
@@ -176,11 +180,11 @@ class ReviewerAgent(Agent):
         ]
 
         llm = self.get_llm()
-        ai_msg = llm.invoke(messages)
-        response = ai_msg.content
+        llm_response = llm.invoke(messages)
+        llm_response_content = llm_response.content
 
-        print(colored(f"Reviewer 👩🏽‍⚖️: {response}", 'magenta'))
-        self.update_state("reviewer_response", response)
+        print(colored(f"Reviewer 👩🏽‍⚖️: {llm_response_content}", 'magenta'))
+        self.update_state("reviewer_response", llm_response_content)
         return self.state
     
 class RouterAgent(Agent):
@@ -196,23 +200,81 @@ class RouterAgent(Agent):
         ]
 
         llm = self.get_llm()
-        ai_msg = llm.invoke(messages)
-        response = ai_msg.content
+        llm_response = llm.invoke(messages)
+        llm_response_content = llm_response.content
 
-        print(colored(f"Router 🧭: {response}", 'blue'))
-        self.update_state("router_response", response)
+        print(colored(f"Router 🧭: {llm_response_content}", 'blue'))
+        self.update_state("router_response", llm_response_content)
         return self.state
 
 class FinalReportAgent(Agent):
     def invoke(self, final_response=None):
         final_response_value = final_response() if callable(final_response) else final_response
-        response = final_response_value.content
+        llm_response_content = final_response_value.content
 
-        print(colored(f"Final Report 📝: {response}", 'blue'))
-        self.update_state("final_reports", response)
+        print(colored(f"Final Report 📝: {llm_response_content}", 'blue'))
+        self.update_state("final_reports", llm_response_content)
         return self.state
 
 class EndNodeAgent(Agent):
     def invoke(self):
         self.update_state("end_chain", "end_chain")
         return self.state
+
+
+
+# Agents for PDF Retrieval Extraction
+class TextSummaryAgent(Agent):
+    def invoke(self, extracted_text, prompt=pdf_text_summary_prompt_template):
+        text_summary_prompt = prompt.format(
+            datetime=get_current_utc_datetime()
+        )
+
+        messages = [
+            {"role": "system", "content": text_summary_prompt},
+            {"role": "user", "content": f"extracted text: {extracted_text}"}
+        ]
+
+        llm = self.get_llm()
+        summarize_chain = {"extracted_text": lambda x: x} | messages | llm | StrOutputParser()
+        text_summaries = summarize_chain.batch(extracted_text, {"max_concurrency": 3})
+
+        print(colored(f"Text Summary : {text_summaries}", 'red'))
+        return text_summaries
+
+
+class TableSummaryAgent(Agent):
+    def invoke(self, extracted_table, prompt=pdf_table_summary_prompt_template):
+        table_summary_prompt = prompt.format(
+            datetime=get_current_utc_datetime()
+        )
+
+        messages = [
+            {"role": "system", "content": table_summary_prompt},
+            {"role": "user", "content": f"extracted table: {extracted_table}"}
+        ]
+
+        llm = self.get_llm()
+        summarize_chain = {"extracted_table": lambda x: x} | messages | llm | StrOutputParser()
+        tables_summaries = summarize_chain.batch(extracted_table, {"max_concurrency": 3})
+
+        print(colored(f"Table Summary : {tables_summaries}", 'Yellow'))
+        return tables_summaries
+
+class ImageSummaryAgent(Agent):
+    def invoke(self, extracted_images, prompt=pdf_image_summary_prompt_template e):
+        image_summary_prompt = prompt.format(
+            datetime=get_current_utc_datetime()
+        )
+        
+        messages = [
+            {"role": "system", "content": image_summary_prompt},
+            {"role": "user", "content": f"extracted table: {extracted_images}"}
+        ]
+
+        llm = self.get_llm()
+        summarize_chain = {"extracted_image": lambda x: x} | messages | llm | StrOutputParser()
+        images_summaries = summarize_chain.batch(extracted_images)
+
+        print(colored(f"Table Summary : {images_summaries}", 'Pink'))
+        return images_summaries
