@@ -248,3 +248,84 @@ router_guided_json = {
     "required": ["next_agent"]
 }
 
+pdf_text_summary_prompt_template = """
+You are a text summarizer. Your task is to summarize the text chunk extracted from a PDF file. 
+You should provide a summary that is concise and clear, highlighting the main points and key information.
+
+Here is the text chunk:
+{extracted_text}
+
+You must provide your response in the following json format:
+
+    "text_summary": "The summary of the text chunk"
+
+Current date and time:
+{datetime}
+"""
+
+pdf_text_summary_guided_json = {
+    "type": "object",
+    "properties": {
+        "text_summary": {
+            "type": "string",
+            "description": "The summary of the text chunk"
+        }
+    },
+    "required": ["text_summary"]
+}
+
+
+
+pdf_table_summary_prompt_template = """
+You are a table summarizer. Your task is to summarize the given table extracted from a PDF file. 
+You should provide a summary that is concise and clear, highlighting the main points and key information.
+
+Here is the table:
+{extracted_table}
+
+You must provide your response in the following json format:
+
+    "table_summary": "The summary of the text chunk"
+
+Current date and time:
+{datetime}
+"""
+
+pdf_table_summary_guided_json = {
+    "type": "object",
+    "properties": {
+        "table_summary": {
+            "type": "string",
+            "description": "The summary of the table"
+        }
+    },
+    "required": ["table_summary"]
+}
+
+pdf_image_summary_prompt_template = """
+You are an image summarizer. Your task is to summarize the given image extracted from a PDF file. Describe the image in detail.
+You should provide a summary that is concise and clear, highlighting the main points and key information.
+
+
+Here is the table:
+{extracted_image}
+
+You must provide your response in the following json format:
+
+    "table_summary": "The summary of the text chunk"
+
+Current date and time:
+{datetime}
+"""
+
+pdf_image_summary_guided_json = {
+    "type": "object",
+    "properties": {
+        "image_summary": {
+            "type": "string",
+            "description": "The summary of the image"
+        }
+    },
+    "required": ["image_summary"]
+}
+
