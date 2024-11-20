@@ -164,7 +164,15 @@ Current date and time:
 # """
 
 reviewer_prompt_template = """
-You are a reviewer. Your task is to review the reporter's response to the research question and provide feedback.
+You are a reviewer. Your task is to review the response coming from two different sources.
+The first resource is the direct answer from an LLM and the second resource is the response from the reporter.
+
+Your task is to review the responses from the LLM and the reporter's response to the research question and provide feedback.
+If both of the responses are present, you can ignore the LLM's response and focus on the reporter's response.
+It means that the LLM response was once reviewed and did not pass the review.
+
+Here is the llm's response:
+llm's response: {llm}
 
 Here is the reporter's response:
 Reportr's response: {reporter}
@@ -306,12 +314,9 @@ pdf_image_summary_prompt_template = """
 You are an image summarizer. Your task is to summarize the given image extracted from a PDF file. Describe the image in detail.
 You should provide a summary that is concise and clear, highlighting the main points and key information.
 
-Here is the image:
-{extracted_image}
-
 You must provide your response in the following json format:
 
-    "image_summary": "The summary of the text chunk"
+    "image_summary": "The summary of the image"
 
 Current date and time:
 {datetime}
@@ -341,3 +346,46 @@ You must provide your response in the following json format:
 Current date and time:
 {datetime}
 """
+
+pdf_reporter_summary_guided_json = {
+    "type": "object",
+    "properties": {
+        "PDF_summary": {
+            "type": "string",
+            "description": "The summary of the PDF file, including text and images"
+        },
+        "Context": {
+            "type": "string",
+            "description": "The Context of the summary"
+}
+    },
+    "required": ["PDF_summary", "Context"]
+}
+
+
+direct_llm_prompt_template = """
+You are a helpful Assistent. Give the answer to the given question.
+
+Current date and time:
+{datetime}
+
+Your response must take the following json format:
+
+    "research_query": "Given question"
+    "direct_answer": "Your Answer"
+"""
+
+direct_llm_guided_json = {
+    "type": "object",
+    "properties": {
+        "research_query": {
+            "type": "string",
+            "description": "Given question"
+        },
+        "direct_answer": {
+            "type": "string",
+            "description": "LLM answer"
+        },
+    },
+    "required": ["research_query", "direct_answer",]
+}

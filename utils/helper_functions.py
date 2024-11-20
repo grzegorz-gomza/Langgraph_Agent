@@ -99,3 +99,10 @@ def custom_print(message, stdscr=None, scroll_pos=0):
         return num_lines
     else:
         print(message)
+
+
+def check_if_pdf_loaded(state: AgentGraphState):
+    if state.get("pdf_loaded") == None:
+        return False
+    else:
+        return True

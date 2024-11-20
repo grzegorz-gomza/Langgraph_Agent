@@ -10,9 +10,19 @@ from langchain_core.output_parsers import StrOutputParser
 
 from utils.helper_functions import load_config
 from vectorstore.vectorstore import create_vectorstore, add_to_vectorstore, retrieve_response
+from agents.agents import (
+                            AgentGraphState,
+                            PDFReporterAgent,
+                            TextSummaryAgent,
+                            PDFTableSummaryAgent,
+                            PDFImageSummaryAgent
+                            )
 
 config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config.yaml")
 load_config(config_path)
+
+
+        
 
 def extract_pdf_elements(file_path):
     chunks = partition_pdf(
@@ -54,11 +64,20 @@ def display_base64_image(base64_code):
     display(Image(data=image_data))
 
 
-def pdf_extraction_tool(state: AgentGraphState, file_path: str, user_query: str):
-    chunks = extract_pdf_elements(file_path)
-    texts, tables, images = separate_elements(chunks)
-# zrob tego toola jako jeden pelen workflow od przyjecia pliku pdf, po stworzenie vectorstore zapisanie wszystkiego 
-# do vectorstore az po wyplucie summary co do zadanego pytania. Zrob logike, ktora nie wymaga podwojnego
-# ladowania pliku pdf.
-    state = {**state, "pdf_extracted_tex": results}
-        return state
+def pdf_extraction_tool(file_path: str):
+    chunks = extract_pdf_elements(file_path) # Extract elements from PDF
+    texts, tables, images = separate_elements(chunks) # Separate elements into text, tables and images
+
+    # Summarize data
+    text_summaries = TextSummaryAgent.invoke(texts)
+    table_summaries = PDFTableSummaryAgent.invoke(tables)
+    image_summaries = PDFImageSummaryAgent.invoke(images)
+
+    # Create vectorstore
+    retriever = create_vectorstore()
+    
+    # Add data to vectorstore
+    retriever = add_to_vectorstore(texts, tables, images, text_summaries, table_summaries, image_summaries, retriever)
+
+    return retriever
+

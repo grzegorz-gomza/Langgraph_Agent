@@ -5,6 +5,7 @@ from termcolor import colored
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
 from base64 import b64decode
 
 from models.openai_models import get_open_ai, get_open_ai_json
@@ -22,10 +23,12 @@ from prompts.prompts import (
     pdf_text_summary_prompt_template,
     pdf_table_summary_prompt_template,
     pdf_image_summary_prompt_template,
-    pdf_reporter_prompt_template
+    pdf_reporter_prompt_template,
+    direct_llm_prompt_template
 )
-from utils.helper_functions import get_current_utc_datetime, check_for_content
+from utils.helper_functions import get_current_utc_datetime, check_for_content, check_if_pdf_loaded
 from states.state import AgentGraphState
+from tools.pdf_extraction import pdf_extraction_tool
 
 class Agent:
     def __init__(self, state: AgentGraphState, model=None, server=None, temperature=0, model_endpoint=None, stop=None, guided_json=None):
@@ -235,10 +238,7 @@ class TextSummaryAgent(Agent):
             datetime=get_current_utc_datetime()
         )
 
-        messages = [
-            {"role": "system", "content": text_summary_prompt},
-            {"role": "user", "content": f"extracted text: {extracted_text}"}
-        ]
+        messages = ChatPromptTemplate.from_template(text_summary_prompt)
 
         llm = self.get_llm()
         summarize_chain = {"extracted_text": lambda x: x} | messages | llm | StrOutputParser()
@@ -254,10 +254,7 @@ class TableSummaryAgent(Agent):
             datetime=get_current_utc_datetime()
         )
 
-        messages = [
-            {"role": "system", "content": table_summary_prompt},
-            {"role": "user", "content": f"extracted table: {extracted_table}"}
-        ]
+        messages = ChatPromptTemplate.from_template(table_summary_prompt)
 
         llm = self.get_llm()
         summarize_chain = {"extracted_table": lambda x: x} | messages | llm | StrOutputParser()
@@ -273,23 +270,32 @@ class ImageSummaryAgent(Agent):
         )
         
         messages = [
-            {"role": "system", "content": image_summary_prompt},
-            {"role": "user", "content": f"extracted table: {extracted_images}"}
+            (
+                "user",
+                [
+                    {"type": "text", "text": image_summary_prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/jpeg;base64,{image}"},
+                    },
+                ],
+            )
         ]
 
+        prompt = ChatPromptTemplate.from_messages(messages)
+
         llm = self.get_llm()
-        summarize_chain = {"extracted_image": lambda x: x} | messages | llm | StrOutputParser()
+        summarize_chain = prompt | llm | StrOutputParser()
         images_summaries = summarize_chain.batch(extracted_images)
 
         print(colored(f"Table Summary : {images_summaries}", 'Pink'))
         return images_summaries
 
 class PDFReporterAgent(Agent):
-    def __init__(self, state: AgentGraphState, retriever, prompt=pdf_reporter_prompt_template, **kwargs):
-        super().__init__(state, **kwargs)
-        self.retriever = retriever
-
-    @staticmethod
+    def extract_pdf_elements(self, file_path: str):
+        retriever = pdf_extraction_tool(file_path=file_path)
+        return retriever
+    
     def parse_docs(docs):
         """Split base64-encoded images and texts"""
         b64 = []
@@ -302,53 +308,92 @@ class PDFReporterAgent(Agent):
                 text.append(doc)
         return {"images": b64, "texts": text}
 
-    @staticmethod
-    def build_prompt(context, question, prompt):
-        docs_by_type = parse_docs(context)
+    def build_prompt(kwargs):
+
+        docs_by_type = kwargs["context"]
+        user_question = kwargs["question"]
 
         context_text = ""
         if len(docs_by_type["texts"]) > 0:
-            context_text += ' '.join(docs_by_type["texts"])
+            for text_element in docs_by_type["texts"]:
+                context_text += text_element.text
 
-        # Construct prompt with context (including images)
-        prompt_template = prompt.format(
-            datetime=get_current_utc_datetime()
-        )
+        # construct prompt with context (including images)
+        prompt_template = pdf_reporter_prompt_template.format(
+                                                            user_question=user_question,
+                                                            context_text=context_text
+                                                            )
 
         prompt_content = [{"type": "text", "text": prompt_template}]
 
-        # if len(docs_by_type["images"]) > 0:
-        #     for image in docs_by_type["images"]:
-        #         prompt_content.append(
-        #             {
-        #                 "type": "image_url",
-        #                 "image_url": {"url": f"data:image/jpeg;base64,{image}"},
-        #             }
-        #         )
+        if len(docs_by_type["images"]) > 0:
+            for image in docs_by_type["images"]:
+                prompt_content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image}"},
+                    }
+                )
 
-        return prompt_content
+        return ChatPromptTemplate.from_messages(
+            [
+                HumanMessage(content=prompt_content),
+            ]
+        )
 
-    def invoke(self, research_question, context):
-        # Chain processing
-        doc_parse = RunnableLambda(self.parse_docs)
-        prompt_build = RunnableLambda(self.build_prompt)
+    def invoke(self, research_question, file_path = None):
+        retriever = self.extract_pdf_elements(file_path=file_path)
         llm = self.get_llm()
-
-        # Executing the chain
-        docs_processed = doc_parse.invoke(context)
-        prompt = prompt_build.invoke(docs_processed, research_question)
         
-        messages = [HumanMessage(content=prompt)]
+        chain = (
+            {
+                "context": retriever | RunnableLambda(parse_docs),
+                "question": RunnablePassthrough(),
+            }
+            | RunnableLambda(build_prompt)
+            | llm
+            | StrOutputParser()
+        )
+
+        # chain_with_sources = {
+        #     "context": retriever | RunnableLambda(parse_docs),
+        #     "question": RunnablePassthrough(),
+        # } | RunnablePassthrough().assign(
+        #     response=(
+        #         RunnableLambda(build_prompt)
+        #         | llm
+        #         | StrOutputParser()
+        #     )
+        # )
+
+        response = chain.invoke(research_question)
+
+        self.update_state("pdf_report_response", response)
+        print(colored(f"PDFReporter Agent Response: {response}", 'green'))
+        return self.state
+
+class DirectQuestionAgent(Agent):
+    def invoke(self, research_question, prompt=direct_llm_prompt_template):
+        direct_llm_prompt = prompt.format(
+            datetime=get_current_utc_datetime()
+        )
+
+        messages = [
+            {"role": "system", "content": direct_llm_prompt},
+            {"role": "user", "content": f"research question: {research_question}"}
+        ]
+
+        llm = self.get_llm()
         llm_response = llm.invoke(messages)
         llm_response_content = llm_response.content
 
-        self.update_state("pdf_report_response", llm_response_content)
-        print(f"PDFReporter Agent Response: {llm_response_content}")
-
+        self.update_state("direct_question_response", llm_response_content)
+        print(colored(f"Answer direct from LLM: {llm_response_content}", 'lightred'))
         return self.state
 
-# Usage
-state = AgentGraphState()  # Assumed to be defined elsewhere
-pdf_agent = PDFReporterAgent(state=state, retriever=my_retriever, model="gpt-4o-mini", server="openai", temperature=0.5)
 
-response = pdf_agent.invoke(research_question="What is the impact of climate change on polar bears?", context=my_context)
+# # Usage
+# state = AgentGraphState()  # Assumed to be defined elsewhere
+# pdf_agent = PDFReporterAgent(state=state, retriever=my_retriever, model="gpt-4o-mini", server="openai", temperature=0.5)
+
+# response = pdf_agent.invoke(research_question="What is the impact of climate change on polar bears?", context=my_context)

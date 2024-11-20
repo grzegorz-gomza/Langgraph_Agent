@@ -4,6 +4,7 @@ from langgraph.graph.message import add_messages
 # Define the state object for the agent graph
 class AgentGraphState(TypedDict):
     research_question: str
+    direct_question_response: Annotated[list, add_messages]
     planner_response: Annotated[list, add_messages]
     selector_response: Annotated[list, add_messages]
     reporter_response: Annotated[list, add_messages]
@@ -11,6 +12,8 @@ class AgentGraphState(TypedDict):
     router_response: Annotated[list, add_messages]
     serper_response: Annotated[list, add_messages]
     scraper_response: Annotated[list, add_messages]
+    pdf_loaded: Annotated[str, add_messages]
+    pdf_report_response: Annotated[list, add_messages]
     final_reports: Annotated[list, add_messages]
     end_chain: Annotated[list, add_messages]
 
@@ -23,6 +26,14 @@ def get_agent_graph_state(state:AgentGraphState, state_key:str):
             return state["planner_response"][-1]
         else:
             return state["planner_response"]
+
+    if state_key == "direct_question_all":
+        return state["direct_question_response"]
+    elif state_key == "direct_question_latest":
+        if state["direct_question_response"]:
+            return state["direct_question_response"][-1]
+        else:
+            return state["direct_question_response"]
     
     elif state_key == "selector_all":
         return state["selector_response"]
@@ -63,12 +74,24 @@ def get_agent_graph_state(state:AgentGraphState, state_key:str):
             return state["scraper_response"][-1]
         else:
             return state["scraper_response"]
+
+    elif state_key == "pdf_report_all":
+        return state["pdf_report_response"]
+    elif state_key == "pdf_report_latest":
+        if state["pdf_report_response"]:
+            return state["pdf_report_response"][-1]
+        else:
+            return state["pdf_report_response"]
+
+    elif state_key == "pdf_loaded":
+        return state["pdf_loaded"]
         
     else:
         return None
     
 state = {
     "research_question":"",
+    "direct_question_response": [],
     "planner_response": [],
     "selector_response": [],
     "reporter_response": [],
@@ -76,6 +99,8 @@ state = {
     "router_response": [],
     "serper_response": [],
     "scraper_response": [],
+    "pdf_loaded": None,
+    "pdf_report_response": [],
     "final_reports": [],
     "end_chain": []
 }

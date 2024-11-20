@@ -7,12 +7,14 @@ from langchain_core.messages import HumanMessage
 from models.openai_models import get_open_ai_json
 from langgraph.checkpoint.sqlite import SqliteSaver
 from agents.agents import (
+    DirectQuestionAgent,
     PlannerAgent,
     SelectorAgent,
     ReporterAgent,
     ReviewerAgent,
     RouterAgent,
     FinalReportAgent,
+    PDFReporterAgent,
     EndNodeAgent,
 )
 from prompts.prompts import (
@@ -21,10 +23,13 @@ from prompts.prompts import (
     selector_prompt_template,
     reporter_prompt_template,
     router_prompt_template,
+    direct_llm_prompt_template,
     reviewer_guided_json,
     selector_guided_json,
     planner_guided_json,
     router_guided_json,
+    pdf_reporter_summary_guided_json,
+    direct_llm_guided_json
 )
 from tools.google_serper import get_google_serper
 from tools.basic_scraper import scrape_website
@@ -35,6 +40,22 @@ def create_graph(
     server=None, model=None, stop=None, model_endpoint=None, temperature=0
 ):
     graph = StateGraph(AgentGraphState)
+
+    graph.add_node(
+        "direct_question",
+        lambda state: DirectQuestionAgent(
+            state=state,
+            model=model,
+            server=server,
+            guided_json=direct_llm_guided_json,
+            stop=stop,
+            model_endpoint=model_endpoint,
+            temperature=temperature,
+        ).invoke(
+            research_question=state["research_question"],
+            prompt=direct_llm_prompt_template,
+        ),
+    )
 
     graph.add_node(
         "planner",
@@ -176,6 +197,22 @@ def create_graph(
     )
 
     graph.add_node(
+        "pdf_reporter",
+        lambda state: PDFReporterAgent(
+            state=state,
+            model=model,
+            server=server,
+            guided_json=pdf_reporter_summary_guided_json,
+            stop=stop,
+            model_endpoint=model_endpoint,
+            temperature=temperature,
+        ).invoke(
+            research_question=state["research_question"],
+            file_path=state["pdf_loaded"],
+        ),
+    )
+
+    graph.add_node(
         "final_report",
         lambda state: FinalReportAgent(state=state).invoke(
             final_response=lambda: get_agent_graph_state(
@@ -207,19 +244,33 @@ def create_graph(
 
         return next_agent
 
+    def pdf_loaded(state: AgentGraphState):
+        if state["pdf_loaded"] == None:
+            return "reviewer"
+        else:
+            return "pdf_reporter"
+
     # Add edges to the graph
-    graph.set_entry_point("planner")
+    graph.set_entry_point("direct_question")
     graph.set_finish_point("end")
+    graph.add_edge("direct_question", "planner")
+    graph.add_edge("direct_question", "pdf_reporter")
     graph.add_edge("planner", "serper_tool")
     graph.add_edge("serper_tool", "selector")
     graph.add_edge("selector", "scraper_tool")
     graph.add_edge("scraper_tool", "reporter")
+    graph.add_edge("pdf_reporter", "reviewer")
     graph.add_edge("reporter", "reviewer")
     graph.add_edge("reviewer", "router")
 
     graph.add_conditional_edges(
         "router",
         lambda state: pass_review(state=state),
+    )
+
+    graph.add_conditional_edges(
+    "direct_question",
+    lambda state: pdf_loaded(state=state),
     )
 
     graph.add_edge("final_report", "end")
