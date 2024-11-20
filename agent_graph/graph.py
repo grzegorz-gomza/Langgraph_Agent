@@ -142,13 +142,13 @@ def create_graph(
             # planner=lambda: get_agent_graph_state(state=state, state_key="planner_latest"),
             # selector=lambda: get_agent_graph_state(state=state, state_key="selector_latest"),
             reporter=lambda: get_agent_graph_state(
-                state=state, state_key="pdf_report_response"
+                state=state, state_key="reporter_latest"
+            ),
+            direct_question_response=lambda: get_agent_graph_state(
+                state=state, state_key="direct_question_response"
             ),
             pdf_reporter_responce=lambda: get_agent_graph_state(
-                state=state, state_key="reporter_latest"
-            ),
-            reporter=lambda: get_agent_graph_state(
-                state=state, state_key="reporter_latest"
+                state=state, state_key="pdf_report_response"
             ),
             # planner_agent=planner_prompt_template,
             # selector_agent=selector_prompt_template,
@@ -250,23 +250,18 @@ def create_graph(
 
         return next_agent
 
-    def pdf_loaded(state: AgentGraphState):
+    def set_graph_entry_point(state: AgentGraphState, graph: StateGraph):
         if state["pdf_loaded"] == None:
-            return "direct_question"
+            graph.set_entry_point("direct_question")
         else:
-            return "pdf_reporter"
-
-    def llm_responce_sufficient(state: AgentGraphState):
-        if state["llm_answer_sufficient"] == True:
-            return "end"
-        else:
-            return "planner"
+            graph.set_entry_point("pdf_reporter")
+        return graph
 
     # Add edges to the graph
-    graph.set_entry_point("direct_question")
+    set_graph_entry_point(state=state, graph=graph)
     graph.set_finish_point("end")
     graph.add_edge("direct_question", "reviewer")
-    graph.add_edge("direct_question", "pdf_reporter")
+    graph.add_edge("pdf_reporter", "reviewer")
     graph.add_edge("planner", "serper_tool")
     graph.add_edge("serper_tool", "selector")
     graph.add_edge("selector", "scraper_tool")
@@ -278,11 +273,6 @@ def create_graph(
     graph.add_conditional_edges(
         "router",
         lambda state: pass_review(state=state),
-    )
-
-    graph.add_conditional_edges(
-    "direct_question",
-    lambda state: pdf_loaded(state=state),
     )
 
     graph.add_edge("final_report", "end")

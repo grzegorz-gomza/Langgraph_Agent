@@ -1,9 +1,9 @@
 import os
 import uuid
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 from langchain.storage import InMemoryStore
 from langchain.schema.document import Document
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.retrievers.multi_vector import MultiVectorRetriever
 
 from utils.helper_functions import load_config

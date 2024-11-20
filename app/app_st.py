@@ -5,7 +5,7 @@ import yaml
 
 from agent_graph.graph import create_graph, compile_workflow
 
-
+print("all shit loaded")
 def update_config(
     serper_api_key,
     openai_llm_api_key,
@@ -108,9 +108,24 @@ def main():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
 
+    if "pdf_loaded" not in st.session_state:
+        st.session_state.pdf_loaded = False
+
     # Pasek boczny z ustawieniami
     with st.sidebar:
-        st.header("Chat settings")
+        # Define header
+        st.subheader("Your documents")
+        # File Uploader on the sidebar
+        pdf_docs = st.file_uploader(
+            "Choose a PDF file", type="pdf", accept_multiple_files=True
+        )
+
+        # Create the button to upload the file
+        if st.button("Upload PDF"):
+            print(pdf_docs)
+
+        
+        st.subheader("Chat settings")
 
         server = st.selectbox(
             "Choose the server:",
