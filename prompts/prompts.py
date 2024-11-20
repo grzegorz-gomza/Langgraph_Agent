@@ -164,15 +164,23 @@ Current date and time:
 # """
 
 reviewer_prompt_template = """
-You are a reviewer. Your task is to review the response coming from two different sources.
-The first resource is the direct answer from an LLM and the second resource is the response from the reporter.
+You are a reviewer. Your task is to review the response coming from three different sources.
+The first resource is the direct answer from an LLM.
+the second resource is the response from a pdf_reporter.
+The second resource is the response from the web_reporter.
 
-Your task is to review the responses from the LLM and the reporter's response to the research question and provide feedback.
-If both of the responses are present, you can ignore the LLM's response and focus on the reporter's response.
-It means that the LLM response was once reviewed and did not pass the review.
+Your task is to review the responses from the three sources to the research question and provide feedback.
+It is possible, that not all of the responses are present.
+It is possible, that some of the responses are wrong and contradicting the other. In that case you should treat the importance of the reponces in the following order:
+1. pdf_reporter
+2. web_reporter
+3. LLM
 
 Here is the llm's response:
-llm's response: {llm}
+llm's response: {direct_question_response}
+
+Here is the pdf_reporter's response:
+pdf_reporter's response: {pdf_reporter_responce}
 
 Here is the reporter's response:
 Reportr's response: {reporter}

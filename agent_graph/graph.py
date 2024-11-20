@@ -142,6 +142,12 @@ def create_graph(
             # planner=lambda: get_agent_graph_state(state=state, state_key="planner_latest"),
             # selector=lambda: get_agent_graph_state(state=state, state_key="selector_latest"),
             reporter=lambda: get_agent_graph_state(
+                state=state, state_key="pdf_report_response"
+            ),
+            pdf_reporter_responce=lambda: get_agent_graph_state(
+                state=state, state_key="reporter_latest"
+            ),
+            reporter=lambda: get_agent_graph_state(
                 state=state, state_key="reporter_latest"
             ),
             # planner_agent=planner_prompt_template,
@@ -246,14 +252,20 @@ def create_graph(
 
     def pdf_loaded(state: AgentGraphState):
         if state["pdf_loaded"] == None:
-            return "reviewer"
+            return "direct_question"
         else:
             return "pdf_reporter"
+
+    def llm_responce_sufficient(state: AgentGraphState):
+        if state["llm_answer_sufficient"] == True:
+            return "end"
+        else:
+            return "planner"
 
     # Add edges to the graph
     graph.set_entry_point("direct_question")
     graph.set_finish_point("end")
-    graph.add_edge("direct_question", "planner")
+    graph.add_edge("direct_question", "reviewer")
     graph.add_edge("direct_question", "pdf_reporter")
     graph.add_edge("planner", "serper_tool")
     graph.add_edge("serper_tool", "selector")

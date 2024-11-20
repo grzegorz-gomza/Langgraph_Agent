@@ -12,7 +12,7 @@ class AgentGraphState(TypedDict):
     router_response: Annotated[list, add_messages]
     serper_response: Annotated[list, add_messages]
     scraper_response: Annotated[list, add_messages]
-    pdf_loaded: Annotated[str, add_messages]
+    pdf_loaded: str
     pdf_report_response: Annotated[list, add_messages]
     final_reports: Annotated[list, add_messages]
     end_chain: Annotated[list, add_messages]
