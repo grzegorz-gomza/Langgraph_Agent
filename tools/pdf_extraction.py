@@ -10,11 +10,11 @@ from langchain_core.output_parsers import StrOutputParser
 
 from utils.helper_functions import load_config
 from vectorstore.vectorstore import create_vectorstore, add_to_vectorstore, retrieve_response
-from agents.agents import (
-                            AgentGraphState,
+from agents.agents import AgentGraphState
+from agents.agents_pdf import (
                             TextSummaryAgent,
-                            PDFTableSummaryAgent,
-                            PDFImageSummaryAgent
+                            TableSummaryAgent,
+                            ImageSummaryAgent
                             )
 
 config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config.yaml")
@@ -67,10 +67,10 @@ def pdf_extraction_tool(file_path: str):
     chunks = extract_pdf_elements(file_path) # Extract elements from PDF
     texts, tables, images = separate_elements(chunks) # Separate elements into text, tables and images
 
-    # Summarize data TODO: this llms should be put directly here
+    # Summarize data 
     text_summaries = TextSummaryAgent.invoke(texts)
-    table_summaries = PDFTableSummaryAgent.invoke(tables)
-    image_summaries = PDFImageSummaryAgent.invoke(images)
+    table_summaries = TableSummaryAgent.invoke(tables)
+    image_summaries = ImageSummaryAgent.invoke(images)
 
     # Create vectorstore
     retriever = create_vectorstore()

@@ -20,14 +20,11 @@ from prompts.prompts import (
     reporter_prompt_template,
     reviewer_prompt_template,
     router_prompt_template,
-    pdf_text_summary_prompt_template,
-    pdf_table_summary_prompt_template,
-    pdf_image_summary_prompt_template,
     pdf_reporter_prompt_template,
     direct_llm_prompt_template
 )
 from utils.helper_functions import get_current_utc_datetime, check_for_content, check_if_pdf_loaded
-from states.state import AgentGraphState
+from states.state import AgentGraphState, get_agent_graph_state
 from tools.pdf_extraction import pdf_extraction_tool
 
 class Agent:
@@ -223,6 +220,7 @@ class RouterAgent(Agent):
         llm_response_content = llm_response.content
 
         print(colored(f"Router 🧭: {llm_response_content}", 'blue'))
+        print(self.state)
         self.update_state("router_response", llm_response_content)
         return self.state
 
@@ -240,67 +238,6 @@ class EndNodeAgent(Agent):
         self.update_state("end_chain", "end_chain")
         return self.state
 
-
-
-# Agents for PDF Retrieval Extraction
-class TextSummaryAgent(Agent):
-    def invoke(self, extracted_text, prompt=pdf_text_summary_prompt_template):
-        text_summary_prompt = prompt.format(
-            datetime=get_current_utc_datetime()
-        )
-
-        messages = ChatPromptTemplate.from_template(text_summary_prompt)
-
-        llm = self.get_llm()
-        summarize_chain = {"extracted_text": lambda x: x} | messages | llm | StrOutputParser()
-        text_summaries = summarize_chain.batch(extracted_text, {"max_concurrency": 3})
-
-        print(colored(f"Text Summary : {text_summaries}", 'red'))
-        return text_summaries
-
-
-class TableSummaryAgent(Agent):
-    def invoke(self, extracted_table, prompt=pdf_table_summary_prompt_template):
-        table_summary_prompt = prompt.format(
-            datetime=get_current_utc_datetime()
-        )
-
-        messages = ChatPromptTemplate.from_template(table_summary_prompt)
-
-        llm = self.get_llm()
-        summarize_chain = {"extracted_table": lambda x: x} | messages | llm | StrOutputParser()
-        tables_summaries = summarize_chain.batch(extracted_table, {"max_concurrency": 3})
-
-        print(colored(f"Table Summary : {tables_summaries}", 'Yellow'))
-        return tables_summaries
-
-class ImageSummaryAgent(Agent):
-    def invoke(self, extracted_images, prompt=pdf_image_summary_prompt_template):
-        image_summary_prompt = prompt.format(
-            datetime=get_current_utc_datetime()
-        )
-        
-        messages = [
-            (
-                "user",
-                [
-                    {"type": "text", "text": image_summary_prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": "data:image/jpeg;base64,{image}"},
-                    },
-                ],
-            )
-        ]
-
-        prompt = ChatPromptTemplate.from_messages(messages)
-
-        llm = self.get_llm()
-        summarize_chain = prompt | llm | StrOutputParser()
-        images_summaries = summarize_chain.batch(extracted_images)
-
-        print(colored(f"Table Summary : {images_summaries}", 'Pink'))
-        return images_summaries
 
 class PDFReporterAgent(Agent):
     def extract_pdf_elements(self, file_path: str):
@@ -394,12 +331,12 @@ class DirectQuestionAgent(Agent):
             {"role": "user", "content": f"research question: {research_question}"}
         ]
 
-        llm = self.get_llm()
+        llm = self.get_llm(json_model=False)
         llm_response = llm.invoke(messages)
         llm_response_content = llm_response.content
 
         self.update_state("direct_question_response", llm_response_content)
-        print(colored(f"Answer direct from LLM: {llm_response_content}", 'lightred'))
+        print(colored(f"Answer direct from LLM: {self.state['direct_question_response']}", 'light_red'))
         return self.state
 
 

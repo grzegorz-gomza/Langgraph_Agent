@@ -170,11 +170,7 @@ the second resource is the response from a pdf_reporter.
 The second resource is the response from the web_reporter.
 
 Your task is to review the responses from the three sources to the research question and provide feedback.
-It is possible, that not all of the responses are present.
-It is possible, that some of the responses are wrong and contradicting the other. In that case you should treat the importance of the reponces in the following order:
-1. pdf_reporter
-2. web_reporter
-3. LLM
+It is possible, that not all three of the responses are present. If this is the case, you should ignore the missing responses.
 
 Here is the llm's response:
 llm's response: {direct_question_response}
@@ -198,6 +194,9 @@ State of the agents: {state}
 
 Your response must take the following json format:
 
+    "llm_response": "Copy the llm's response here",
+    "pdf_reporter_response": "Copy the pdf_reporter's response here",
+    "reporter_response": "Copy the reporter's response here",
     "feedback": "If the response fails your review, provide precise feedback on what is required to pass the review.",
     "pass_review": "True/False",
     "comprehensive": "True/False",
@@ -210,6 +209,18 @@ Your response must take the following json format:
 reviewer_guided_json = {
     "type": "object",
     "properties": {
+        "llm_response": {
+            "type": "string",
+            "description": "Copy the llm's response here"
+        },
+        "pdf_reporter_response": {
+            "type": "string",
+            "description": "Copy the pdf_reporter's response here"
+        },
+        "reporter_response": {
+            "type": "string",
+            "description": "Copy the reporter's response here"
+        },
         "feedback": {
             "type": "string",
             "description": "Your feedback here. Along with your feedback explain why you have passed it to the specific agent"
@@ -231,7 +242,7 @@ reviewer_guided_json = {
             "description": "True/False"
         },
     },
-    "required": ["feedback", "pass_review", "comprehensive", "citations_provided", "relevant_to_research_question"]
+    "required": ["llm_response", "pdf_reporter_response", "reporter_response","feedback", "pass_review", "comprehensive", "citations_provided", "relevant_to_research_question"]
 }
 
 router_prompt_template = """
@@ -376,12 +387,12 @@ You are a helpful Assistent. Give the answer to the given question.
 
 Current date and time:
 {datetime}
-
-Your response must take the following json format:
-
-    "research_query": "Given question"
-    "direct_answer": "Your Answer"
 """
+# Your response must take the following json format:
+
+#     "research_query": "Given question"
+#     "direct_question_response": "Your Answer"
+
 
 direct_llm_guided_json = {
     "type": "object",
@@ -390,10 +401,10 @@ direct_llm_guided_json = {
             "type": "string",
             "description": "Given question"
         },
-        "direct_answer": {
+        "direct_question_response": {
             "type": "string",
             "description": "LLM answer"
         },
     },
-    "required": ["research_query", "direct_answer",]
+    "required": ["research_query", "direct_question_response",]
 }

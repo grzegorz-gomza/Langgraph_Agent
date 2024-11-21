@@ -5,7 +5,6 @@ import yaml
 
 from agent_graph.graph import create_graph, compile_workflow
 
-print("all shit loaded")
 def update_config(
     serper_api_key,
     openai_llm_api_key,
@@ -89,11 +88,14 @@ class ChatWorkflow:
             if next_agent == "final_report":
                 state = event["router"]
                 reporter_state = state["reporter_response"]
-                if isinstance(reporter_state, list):
+                if isinstance(reporter_state, list) and reporter_state != []:
                     reporter_state = reporter_state[-1]
-                return (
-                    reporter_state.content if reporter_state else "No report available"
-                )
+                    return (
+                        reporter_state.content if reporter_state else "No report available"
+                    )
+                else:
+                    
+                    return state["direct_question_response"]
 
         return "Workflow did not reach final report"
 

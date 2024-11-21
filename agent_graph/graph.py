@@ -47,7 +47,7 @@ def create_graph(
             state=state,
             model=model,
             server=server,
-            guided_json=direct_llm_guided_json,
+            # guided_json=direct_llm_guided_json,
             stop=stop,
             model_endpoint=model_endpoint,
             temperature=temperature,
@@ -144,9 +144,7 @@ def create_graph(
             reporter=lambda: get_agent_graph_state(
                 state=state, state_key="reporter_latest"
             ),
-            direct_question_response=lambda: get_agent_graph_state(
-                state=state, state_key="direct_question_response"
-            ),
+            direct_question_response=state["direct_question_response"],
             pdf_reporter_responce=lambda: get_agent_graph_state(
                 state=state, state_key="pdf_report_response"
             ),
