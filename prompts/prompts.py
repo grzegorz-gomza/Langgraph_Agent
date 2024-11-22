@@ -181,7 +181,8 @@ pdf_reporter's response: {pdf_reporter_responce}
 Here is the reporter's response:
 Reportr's response: {reporter}
 
-Your feedback should include reasons for passing or failing the review and suggestions for improvement.
+Your feedback should include reasons for passing or failing the review and suggestions for improvement. Be specific in your feedback.
+Take into consideration, if the data gathered from the pdf_reporter and the reporter (web search) are gathered correctly without error during the process. 
 
 You should consider the previous feedback you have given when providing new feedback.
 Feedback: {feedback}
@@ -194,7 +195,7 @@ State of the agents: {state}
 
 Your response must take the following json format:
 
-    "llm_response": "Copy the llm's response here",
+    "direct_question_response": "Copy the llm's response here",
     "pdf_reporter_response": "Copy the pdf_reporter's response here",
     "reporter_response": "Copy the reporter's response here",
     "feedback": "If the response fails your review, provide precise feedback on what is required to pass the review.",
@@ -209,7 +210,7 @@ Your response must take the following json format:
 reviewer_guided_json = {
     "type": "object",
     "properties": {
-        "llm_response": {
+        "direct_question_response": {
             "type": "string",
             "description": "Copy the llm's response here"
         },
@@ -242,37 +243,42 @@ reviewer_guided_json = {
             "description": "True/False"
         },
     },
-    "required": ["llm_response", "pdf_reporter_response", "reporter_response","feedback", "pass_review", "comprehensive", "citations_provided", "relevant_to_research_question"]
+    "required": ["direct_question_response", "pdf_reporter_response", "reporter_response","feedback", "pass_review", "comprehensive", "citations_provided", "relevant_to_research_question"]
 }
 
 router_prompt_template = """
-You are a router. Your task is to route the conversation to the next agent based on the feedback provided by the reviewer.
-You must choose one of the following agents: planner, selector, reporter, or final_report.
+You are a router. Your task is to route the conversation to the next agent based on the feedback provided by the reporter.
+You must choose one of the following agents: planner, selector, or final_report.
 
-Here is the feedback provided by the reviewer:
+Here is the feedback provided by the reporter:
 Feedback: {feedback}
 
 ### Criteria for Choosing the Next Agent:
-- **planner**: If new information is required.
+- **planner**: If new information is required or if the information could be find in the web. 
+- **planner**: If the only source of information provided in feedback is the direct answer from an LLM (direct_question_response) without information from pdf_reporter or reporter and pass_review is set to False
 - **selector**: If a different source should be selected.
-- **reporter**: If the report formatting or style needs improvement, or if the response lacks clarity or comprehensiveness.
 - **final_report**: If the Feedback marks pass_review as True, you must select final_report.
 
 you must provide your response in the following json format:
     
-        "next_agent": "one of the following: planner/selector/reporter/final_report"
+        "next_agent": "one of the following: planner/selector/final_report"
+        "reason": "Reason for selecting the next agent"
     
 """
-
+# - **reporter**: If the report formatting or style needs improvement, or if the response lacks clarity or comprehensiveness.
 router_guided_json = {
     "type": "object",
     "properties": {
         "next_agent": {
             "type": "string",
             "description": "one of the following: planner/selector/reporter/final_report"
+        },
+        "reason": {
+            "type": "string",
+            "description": "Reason for selecting the next agent"
         }
     },
-    "required": ["next_agent"]
+    "required": ["next_agent", "reason"]
 }
 
 pdf_text_summary_prompt_template = """

@@ -162,6 +162,7 @@ class ReporterAgent(Agent):
 
         print(colored(f"Reporter 👨‍💻: {llm_response_content}", 'yellow'))
         self.update_state("reporter_response", llm_response_content)
+        print(reporter_prompt)
         return self.state
 
 class ReviewerAgent(Agent):
@@ -220,7 +221,6 @@ class RouterAgent(Agent):
         llm_response_content = llm_response.content
 
         print(colored(f"Router 🧭: {llm_response_content}", 'blue'))
-        print(self.state)
         self.update_state("router_response", llm_response_content)
         return self.state
 

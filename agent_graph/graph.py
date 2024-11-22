@@ -241,8 +241,11 @@ def create_graph(
             else:
                 review_content = review
 
-            review_data = json.loads(review_content)
-            next_agent = review_data["next_agent"]
+            if state["direct_question_response"] != "" and state["planner_response"] == []:
+                next_agent = "planner"
+            else:
+                review_data = json.loads(review_content)
+                next_agent = review_data["next_agent"]
         else:
             next_agent = "end"
 
@@ -258,16 +261,19 @@ def create_graph(
     # Add edges to the graph
     set_graph_entry_point(state=state, graph=graph)
     graph.set_finish_point("end")
+    # llm loop
     graph.add_edge("direct_question", "reviewer")
+    # pdf loop
     graph.add_edge("pdf_reporter", "reviewer")
+    # web search loop
     graph.add_edge("planner", "serper_tool")
     graph.add_edge("serper_tool", "selector")
     graph.add_edge("selector", "scraper_tool")
     graph.add_edge("scraper_tool", "reporter")
-    graph.add_edge("pdf_reporter", "reviewer")
     graph.add_edge("reporter", "reviewer")
+    # parse review to router
     graph.add_edge("reviewer", "router")
-
+    # decide next agent
     graph.add_conditional_edges(
         "router",
         lambda state: pass_review(state=state),

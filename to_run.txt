@@ -1,0 +1,1 @@
+$env:PYTHONPATH += ";C:\Users\DataScience\Documents\GitHub\Langgraph_Agent"
