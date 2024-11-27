@@ -27,13 +27,13 @@ def get_agent_graph_state(state:AgentGraphState, state_key:str):
         else:
             return state["planner_response"]
 
-    # elif state_key == "direct_question_all":
-    #     return state["direct_question_response"]
-    # elif state_key == "direct_question_latest":
-    #     if state["direct_question_response"]:
-    #         return state["direct_question_response"][-1]
-    #     else:
-    #         return state["direct_question_response"]
+    elif state_key == "direct_question_all":
+        return state["direct_question_response"]
+    elif state_key == "direct_question_latest":
+        if state["direct_question_response"]:
+            return state["direct_question_response"][-1]
+        else:
+            return state["direct_question_response"]
     
     elif state_key == "selector_all":
         return state["selector_response"]

@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import json
 import yaml
+import tempfile
 
 from agent_graph.graph import create_graph, compile_workflow
 
@@ -41,9 +42,10 @@ def update_config(
     if gemini_llm_api_key:
         os.environ["GEMINI_API_KEY"] = gemini_llm_api_key
 
-    with open(config_path, "w") as file:
-        yaml.safe_dump(config, file)
+    # with open(config_path, "w") as file:
+    #     yaml.safe_dump(config, file)
 
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
     print("Konfiguracja zaktualizowana pomyślnie.")
 
 
@@ -69,10 +71,10 @@ class ChatWorkflow:
         if not self.workflow:
             return "Workflow has not been built yet. Please update settings first."
 
-        dict_inputs = {"research_question": message_content}
+        dict_inputs = {"research_question": message_content,
+                        "pdf_loaded": st.session_state.pdf_loaded if st.session_state.pdf_loaded else None}
         limit = {"recursion_limit": self.recursion_limit}
         reporter_state = None
-
         for event in self.workflow.stream(dict_inputs, limit):
             next_agent = ""
             if "router" in event.keys():
@@ -86,16 +88,22 @@ class ChatWorkflow:
                     next_agent = next_agent_value
 
             if next_agent == "final_report":
-                state = event["router"]
-                reporter_state = state["reporter_response"]
-                if isinstance(reporter_state, list) and reporter_state != []:
-                    reporter_state = reporter_state[-1]
-                    return (
-                        reporter_state.content if reporter_state else "No report available"
-                    )
+                router_responce = event["router"]["router_response"]
+                llm_responce = state["direct_question_response"]
+                if isinstance(router_responce, list) and router_responce != []:
+                    output = router_responce[-1]
+                    return output.content if output else "No report available"
                 else:
-                    
-                    return state["direct_question_response"]
+                    return llm_responce[-1].content if llm_responce else "No answer available"
+                # state = event["router"]
+                # reporter_state = state["reporter_response"]
+                # if isinstance(reporter_state, list) and reporter_state != []:
+                #     reporter_state = reporter_state[-1]
+                #     return (
+                #         reporter_state.content if reporter_state else "No report available"
+                #     )
+                # else:
+                #     return state["direct_question_response"].content
 
         return "Workflow did not reach final report"
 
@@ -111,23 +119,36 @@ def main():
         st.session_state.chat_history = []
 
     if "pdf_loaded" not in st.session_state:
-        st.session_state.pdf_loaded = False
+        st.session_state.pdf_loaded = ""
 
     # Pasek boczny z ustawieniami
     with st.sidebar:
         # Define header
         st.subheader("Your documents")
+        # create a temporary file
+        tmp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         # File Uploader on the sidebar
-        pdf_docs = st.file_uploader(
-            "Choose a PDF file", type="pdf", accept_multiple_files=True
+        pdf_doc = st.file_uploader(
+            "Choose a PDF file", type="pdf", accept_multiple_files=False
         )
 
         # Create the button to upload the file
         if st.button("Upload PDF"):
-            print(pdf_docs)
-
-        
-        st.subheader("Chat settings")
+            with st.spinner("Uploading PDF..."):
+                try:
+                    if pdf_doc is not None:
+                        # Save the PDF file temporarily
+                        tmp_file.write(pdf_doc.getvalue())
+                        tmp_file.flush()
+                        # Pass the path of the temporary file to session state
+                        st.session_state.pdf_loaded = tmp_file.name
+                        tmp_file.close()
+                    st.success("PDF uploaded successfully", icon="✅")
+                    print("path:", st.session_state.pdf_loaded)
+                except Exception as e:
+                    st.error("PDF upload failed", icon="❌")
+                
+                st.subheader("Chat settings")
 
         server = st.selectbox(
             "Choose the server:",
@@ -136,11 +157,11 @@ def main():
         )
 
         recursion_limit = st.number_input(
-            "Recursion limit:", min_value=1, value=40, key="recursion_limit"
+            "Recursion limit:", min_value=1, value=5, key="recursion_limit"
         )
 
         api_key = st.text_input("Give your API Key:", key="api_key")
-        model = st.text_input("LLM name:", key="llm_model", value="gpt-3.5-turbo")
+        model = st.text_input("LLM name:", key="llm_model", value="gpt-4o-mini") # gpt-3.5-turbo
         serper_api_key = st.text_input(
             "Give your Serper API Key:", key="serper_api_key"
         )

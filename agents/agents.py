@@ -20,13 +20,10 @@ from prompts.prompts import (
     reporter_prompt_template,
     reviewer_prompt_template,
     router_prompt_template,
-    pdf_reporter_prompt_template,
     direct_llm_prompt_template
 )
 from utils.helper_functions import get_current_utc_datetime, check_for_content, check_if_pdf_loaded
-from states.state import AgentGraphState, get_agent_graph_state
-from tools.pdf_extraction import pdf_extraction_tool
-
+from states.state import AgentGraphState
 class Agent:
     def __init__(self, state: AgentGraphState, model=None, server=None, temperature=0, model_endpoint=None, stop=None, guided_json=None):
         self.state = state
@@ -170,11 +167,11 @@ class ReviewerAgent(Agent):
                     prompt=reviewer_prompt_template,
                     reporter=None,
                     direct_question_response=None,
-                    pdf_reporter_responce=None,
+                    pdf_report_response=None,
                     feedback=None):
         reporter_value = reporter() if callable(reporter) else reporter
         direct_question_response_value = direct_question_response() if callable(direct_question_response) else direct_question_response
-        pdf_reporter_responce_value = pdf_reporter_responce() if callable(pdf_reporter_responce) else pdf_reporter_responce
+        pdf_reporter_responce_value = pdf_report_response() if callable(pdf_report_response) else pdf_report_response
         feedback_value = feedback() if callable(feedback) else feedback
 
         reporter_value = check_for_content(reporter_value)
@@ -185,7 +182,7 @@ class ReviewerAgent(Agent):
         reviewer_prompt = prompt.format(
             reporter=reporter_value,
             direct_question_response=direct_question_response_value,
-            pdf_reporter_responce=pdf_reporter_responce_value,
+            pdf_report_response=pdf_reporter_responce_value,
             state=self.state,
             feedback=feedback_value,
             datetime=get_current_utc_datetime(),
@@ -201,6 +198,7 @@ class ReviewerAgent(Agent):
         llm_response_content = llm_response.content
 
         print(colored(f"Reviewer 👩🏽‍⚖️: {llm_response_content}", 'magenta'))
+        print(self.state["pdf_loaded"])
         self.update_state("reviewer_response", llm_response_content)
         return self.state
     
@@ -226,6 +224,7 @@ class RouterAgent(Agent):
 
 class FinalReportAgent(Agent):
     def invoke(self, final_response=None):
+        # dopisz 2 pozostale zrodla i trzeba nimi zonglowac
         final_response_value = final_response() if callable(final_response) else final_response
         llm_response_content = final_response_value.content
 
@@ -236,88 +235,6 @@ class FinalReportAgent(Agent):
 class EndNodeAgent(Agent):
     def invoke(self):
         self.update_state("end_chain", "end_chain")
-        return self.state
-
-
-class PDFReporterAgent(Agent):
-    def extract_pdf_elements(self, file_path: str):
-        retriever = pdf_extraction_tool(file_path=file_path)
-        return retriever
-    
-    def parse_docs(docs):
-        """Split base64-encoded images and texts"""
-        b64 = []
-        text = []
-        for doc in docs:
-            try:
-                b64decode(doc)
-                b64.append(doc)
-            except Exception:
-                text.append(doc)
-        return {"images": b64, "texts": text}
-
-    def build_prompt(kwargs):
-
-        docs_by_type = kwargs["context"]
-        user_question = kwargs["question"]
-
-        context_text = ""
-        if len(docs_by_type["texts"]) > 0:
-            for text_element in docs_by_type["texts"]:
-                context_text += text_element.text
-
-        # construct prompt with context (including images)
-        prompt_template = pdf_reporter_prompt_template.format(
-                                                            user_question=user_question,
-                                                            context_text=context_text
-                                                            )
-
-        prompt_content = [{"type": "text", "text": prompt_template}]
-
-        if len(docs_by_type["images"]) > 0:
-            for image in docs_by_type["images"]:
-                prompt_content.append(
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{image}"},
-                    }
-                )
-
-        return ChatPromptTemplate.from_messages(
-            [
-                HumanMessage(content=prompt_content),
-            ]
-        )
-
-    def invoke(self, research_question, file_path = None):
-        retriever = self.extract_pdf_elements(file_path=file_path)
-        llm = self.get_llm()
-        
-        chain = (
-            {
-                "context": retriever | RunnableLambda(parse_docs),
-                "question": RunnablePassthrough(),
-            }
-            | RunnableLambda(build_prompt)
-            | llm
-            | StrOutputParser()
-        )
-
-        # chain_with_sources = {
-        #     "context": retriever | RunnableLambda(parse_docs),
-        #     "question": RunnablePassthrough(),
-        # } | RunnablePassthrough().assign(
-        #     response=(
-        #         RunnableLambda(build_prompt)
-        #         | llm
-        #         | StrOutputParser()
-        #     )
-        # )
-
-        response = chain.invoke(research_question)
-
-        self.update_state("pdf_report_response", response)
-        print(colored(f"PDFReporter Agent Response: {response}", 'green'))
         return self.state
 
 class DirectQuestionAgent(Agent):
@@ -339,9 +256,3 @@ class DirectQuestionAgent(Agent):
         print(colored(f"Answer direct from LLM: {self.state['direct_question_response']}", 'light_red'))
         return self.state
 
-
-# # Usage
-# state = AgentGraphState()  # Assumed to be defined elsewhere
-# pdf_agent = PDFReporterAgent(state=state, retriever=my_retriever, model="gpt-4o-mini", server="openai", temperature=0.5)
-
-# response = pdf_agent.invoke(research_question="What is the impact of climate change on polar bears?", context=my_context)

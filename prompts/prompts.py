@@ -170,13 +170,13 @@ the second resource is the response from a pdf_reporter.
 The second resource is the response from the web_reporter.
 
 Your task is to review the responses from the three sources to the research question and provide feedback.
-It is possible, that not all three of the responses are present. If this is the case, you should ignore the missing responses.
+It is possible, that not all three of the responses are present. If this is the case, you have to ignore the missing responses.
 
 Here is the llm's response:
 llm's response: {direct_question_response}
 
 Here is the pdf_reporter's response:
-pdf_reporter's response: {pdf_reporter_responce}
+pdf_reporter's response: {pdf_report_response}
 
 Here is the reporter's response:
 Reportr's response: {reporter}
@@ -291,9 +291,6 @@ Here is the text chunk:
 You must provide your response in the following json format:
 
     "text_summary": "The summary of the text chunk"
-
-Current date and time:
-{datetime}
 """
 
 pdf_text_summary_guided_json = {

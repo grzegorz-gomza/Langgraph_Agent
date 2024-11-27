@@ -1,108 +1,173 @@
 from termcolor import colored
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_community.vectorstores import Chroma
+from langchain.storage import InMemoryStore
+from langchain.schema.document import Document
+from langchain_openai import OpenAIEmbeddings
+from langchain.retrievers.multi_vector import MultiVectorRetriever
+
+import os
+import uuid
+from base64 import b64decode
+from unstructured.partition.pdf import partition_pdf
 
 from prompts.prompts import (
     pdf_text_summary_prompt_template,
     pdf_table_summary_prompt_template,
     pdf_image_summary_prompt_template,
+    pdf_reporter_prompt_template
 )
-from utils.helper_functions import get_current_utc_datetime
+from utils.helper_functions import get_current_utc_datetime, load_config
 from states.state import AgentGraphState
+from agents.agents import Agent
 
-class Agent:
-    def __init__(self, state: AgentGraphState, model=None, server=None, temperature=0, model_endpoint=None, stop=None, guided_json=None):
-        self.state = state
-        self.model = model
-        self.server = server
-        self.temperature = temperature
-        self.model_endpoint = model_endpoint
-        self.stop = stop
-        self.guided_json = guided_json
+from vectorstore.vectorstore import VectorStoreManager
 
-    def get_llm(self, json_model=True):
-        if self.server == 'openai':
-            return get_open_ai_json(model=self.model, temperature=self.temperature) if json_model else get_open_ai(model=self.model, temperature=self.temperature)
-        if self.server == 'ollama':
-            return OllamaJSONModel(model=self.model, temperature=self.temperature) if json_model else OllamaModel(model=self.model, temperature=self.temperature)
-        if self.server == 'vllm':
-            return VllmJSONModel(
-                model=self.model, 
-                guided_json=self.guided_json,
-                stop=self.stop,
-                model_endpoint=self.model_endpoint,
-                temperature=self.temperature
-            ) if json_model else VllmModel(
-                model=self.model,
-                model_endpoint=self.model_endpoint,
-                stop=self.stop,
-                temperature=self.temperature
-            )
-        if self.server == 'groq':
-            return GroqJSONModel(
-                model=self.model,
-                temperature=self.temperature
-            ) if json_model else GroqModel(
-                model=self.model,
-                temperature=self.temperature
-            )
-        if self.server == 'claude':
-            return ClaudJSONModel(
-                model=self.model,
-                temperature=self.temperature
-            ) if json_model else ClaudModel(
-                model=self.model,
-                temperature=self.temperature
-            )
-        if self.server == 'gemini':
-            return GeminiJSONModel(
-                model=self.model,
-                temperature=self.temperature
-            ) if json_model else GeminiModel(
-                model=self.model,
-                temperature=self.temperature
-            )      
+config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config.yaml")
+load_config(config_path)
 
-    def update_state(self, key, value):
-        self.state = {**self.state, key: value}
+# class TextSummaryAgent(Agent):
+#     def invoke(self, extracted_text, prompt=pdf_text_summary_prompt_template):
+#         text_summary_prompt = prompt.format(
+#             datetime=get_current_utc_datetime()
+#         )
 
-class TextSummaryAgent(Agent):
-    def invoke(self, extracted_text, prompt=pdf_text_summary_prompt_template):
-        text_summary_prompt = prompt.format(
-            datetime=get_current_utc_datetime()
+#         messages = ChatPromptTemplate.from_template(text_summary_prompt)
+
+#         llm = self.get_llm()
+#         summarize_chain = {"extracted_text": lambda x: x} | messages | llm | StrOutputParser()
+#         text_summaries = summarize_chain.batch(extracted_text, {"max_concurrency": 3})
+
+#         print(colored(f"Text Summary : {text_summaries}", 'red'))
+#         return text_summaries
+
+
+# class TableSummaryAgent(Agent):
+#     def invoke(self, extracted_table, prompt=pdf_table_summary_prompt_template):
+#         table_summary_prompt = prompt.format(
+#             datetime=get_current_utc_datetime()
+#         )
+
+#         messages = ChatPromptTemplate.from_template(table_summary_prompt)
+
+#         llm = self.get_llm()
+#         summarize_chain = {"extracted_table": lambda x: x} | messages | llm | StrOutputParser()
+#         tables_summaries = summarize_chain.batch(extracted_table, {"max_concurrency": 3})
+
+#         print(colored(f"Table Summary : {tables_summaries}", 'Yellow'))
+#         return tables_summaries
+
+# class ImageSummaryAgent(Agent):
+#     def invoke(self, extracted_images, prompt=pdf_image_summary_prompt_template):
+#         image_summary_prompt = prompt.format(
+#             datetime=get_current_utc_datetime()
+#         )
+        
+#         messages = [
+#             (
+#                 "user",
+#                 [
+#                     {"type": "text", "text": image_summary_prompt},
+#                     {
+#                         "type": "image_url",
+#                         "image_url": {"url": "data:image/jpeg;base64,{image}"},
+#                     },
+#                 ],
+#             )
+#         ]
+
+#         prompt = ChatPromptTemplate.from_messages(messages)
+
+#         llm = self.get_llm()
+#         summarize_chain = prompt | llm | StrOutputParser()
+#         images_summaries = summarize_chain.batch(extracted_images)
+
+#         print(colored(f"Table Summary : {images_summaries}", 'Pink'))
+#         return images_summaries
+
+
+
+
+
+
+class PDFReporterAgent(Agent):
+    def extract_pdf_elements(self, file_path):
+        chunks = partition_pdf(
+            filename=file_path,
+            infer_table_structure=True,
+            strategy="hi_res",
+            extract_image_block_types=["Image"],
+            extract_image_block_to_payload=True,
+            chunking_strategy="by_title",
+            max_characters=5000,
+            combine_text_under_n_chars=1000,
+            new_after_n_chars=3000,
         )
+        return chunks
+
+    def separate_elements(self, chunks):
+        tables = []
+        texts = []
+        images = []
+
+        for chunk in chunks:
+            if "Table" in str(type(chunk)):
+                tables.append(chunk)
+            if "CompositeElement" in str(type(chunk)):
+                texts.append(chunk)
+                elements = chunk.metadata.orig_elements
+                for el in elements:
+                    if "Image" in str(type(el)):
+                        images.append(el.metadata.image_base64)
+        return texts, tables, images
+
+    def display_base64_image(self, base64_code):
+        import base64
+        from IPython.display import Image, display
+
+        image_data = base64.b64decode(base64_code)
+        display(Image(data=image_data))
+
+    def summarize_text(self, llm, extracted_text, prompt=pdf_text_summary_prompt_template):
+        if not extracted_text:  # Validate and handle empty input
+            return []
+
+        if isinstance(extracted_text, str):  # Ensure list format for batch processing
+            extracted_text = [extracted_text]
+
+        current_datetime = get_current_utc_datetime()
+        text_summary_prompt = prompt + f"\n\nCurrent date and time: {current_datetime}"
+
 
         messages = ChatPromptTemplate.from_template(text_summary_prompt)
-
-        llm = self.get_llm()
         summarize_chain = {"extracted_text": lambda x: x} | messages | llm | StrOutputParser()
         text_summaries = summarize_chain.batch(extracted_text, {"max_concurrency": 3})
-
-        print(colored(f"Text Summary : {text_summaries}", 'red'))
         return text_summaries
 
-
-class TableSummaryAgent(Agent):
-    def invoke(self, extracted_table, prompt=pdf_table_summary_prompt_template):
-        table_summary_prompt = prompt.format(
-            datetime=get_current_utc_datetime()
-        )
+    def summarize_table(self, llm, extracted_table, prompt=pdf_table_summary_prompt_template):
+        if not extracted_table:
+            return []
+        current_datetime = get_current_utc_datetime()
+        table_summary_prompt = prompt + f"\n\nCurrent date and time: {current_datetime}"
 
         messages = ChatPromptTemplate.from_template(table_summary_prompt)
 
-        llm = self.get_llm()
         summarize_chain = {"extracted_table": lambda x: x} | messages | llm | StrOutputParser()
         tables_summaries = summarize_chain.batch(extracted_table, {"max_concurrency": 3})
 
         print(colored(f"Table Summary : {tables_summaries}", 'Yellow'))
         return tables_summaries
 
-class ImageSummaryAgent(Agent):
-    def invoke(self, extracted_images, prompt=pdf_image_summary_prompt_template):
-        image_summary_prompt = prompt.format(
-            datetime=get_current_utc_datetime()
-        )
+    def summarize_image(self, llm, extracted_images, prompt=pdf_image_summary_prompt_template):
+        if not extracted_images:
+            return []
         
+        current_datetime = get_current_utc_datetime()
+        image_summary_prompt = prompt + f"\n\nCurrent date and time: {current_datetime}"
+
         messages = [
             (
                 "user",
@@ -118,9 +183,135 @@ class ImageSummaryAgent(Agent):
 
         prompt = ChatPromptTemplate.from_messages(messages)
 
-        llm = self.get_llm()
         summarize_chain = prompt | llm | StrOutputParser()
         images_summaries = summarize_chain.batch(extracted_images)
 
-        print(colored(f"Table Summary : {images_summaries}", 'Pink'))
+        print(colored(f"Image Summary : {images_summaries}", 'Pink'))
         return images_summaries
+
+    def pdf_extraction_tool(self, file_path: str):
+        llm = self.get_llm()
+        chunks = self.extract_pdf_elements(file_path)  # Extract elements from PDF
+        texts, tables, images = self.separate_elements(chunks)  # Separate elements into text, tables, and images
+        
+        # Summarize data
+        text_summaries = self.summarize_text(llm, texts)
+        table_summaries = self.summarize_table(llm, tables)
+        image_summaries = self.summarize_image(llm, images)
+        
+        # Use the VectorStoreManager
+        vectorstore_manager = VectorStoreManager()
+        vectorstore_manager.create_vectorstore()  # Create the vectorstore
+        vectorstore_manager.add_to_vectorstore(
+            texts, tables, images, 
+            text_summaries, table_summaries, image_summaries
+        )  # Add data to the vectorstore
+        
+        print(colored(f"Retriever created", 'green'))
+        return vectorstore_manager
+
+    # def parse_docs(self, docs):
+    #     b64 = []
+    #     text = []
+    #     for doc in docs:
+    #         if isinstance(doc, Document) and doc.page_content.startswith("data:image"): # Sprawdzenie czy to base64
+    #             b64.append(doc.page_content.split(",")[1]) # Dodanie tylko zakodowanej części
+    #         elif isinstance(doc, Document):
+    #             text.append(doc.page_content)
+    #     return {"images": b64, "texts": text}
+
+    def parse_docs(self, docs):
+        """Split base64-encoded images and texts"""
+        b64 = []
+        text = []
+        for doc in docs:
+            try:
+                b64decode(doc)
+                b64.append(doc)
+            except Exception as e:
+                text.append(doc)
+        return {"images": b64, "texts": text}
+
+    def build_prompt(self, kwargs):
+
+        docs_by_type = kwargs["context"]
+        user_question = kwargs["question"]
+
+        context_text = ""
+        if len(docs_by_type["texts"]) > 0:
+            for text_element in docs_by_type["texts"]:
+                context_text += text_element.text
+
+        # construct prompt with context (including images)
+        prompt_template = pdf_reporter_prompt_template.format(
+                                                            question=user_question,
+                                                            context_text=context_text,
+                                                            datetime=get_current_utc_datetime()
+                                                            )
+
+        prompt_content = [{"type": "text", "text": prompt_template}]
+
+        if len(docs_by_type["images"]) > 0:
+            for image in docs_by_type["images"]:
+                prompt_content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image}"},
+                    }
+                )
+
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                HumanMessage(content=prompt_content),
+            ]
+        )
+        return prompt
+
+    def debug_input(self, input_dict):
+    # Logujemy wartości context oraz question
+        print("\nDEBUG: Przekazane do modelu:")
+        print("Context:", input_dict.get("context"))
+        print("Question:", input_dict.get("question"))
+        return input_dict  # Ważne, aby zwrócić dane w niezmienionej postaci
+
+    def invoke(self, research_question, file_path = None, retriever=None):
+        if retriever is None and file_path is not None:
+            vectorstore_manager = self.pdf_extraction_tool(file_path=file_path)  # Build vector store
+            retriever = vectorstore_manager.get_runnable_retriever()
+            print("PDFReporter Agent: Retriever created")
+        elif not retriever:
+            print("PDFReporter Agent: No file path provided and no retriever passed. Please provide either a file path or a retriever.")
+
+        
+        
+        if retriever:
+            llm = self.get_llm()
+            print("PDFReporter Agent: LLM created")
+        # Chain setup with context, processing, and final response retrieval
+            chain = (
+                {
+                    "context": retriever | RunnableLambda(self.parse_docs),  # Make retriever compatible using .as_retriever()
+                    "question": RunnablePassthrough(),
+                }
+                # | RunnableLambda(self.debug_input)  # Debuging
+                | RunnableLambda(self.build_prompt)  # Format the prompt
+                | llm  # Pass the prompt to the language model
+                | StrOutputParser()  # Parse the model output
+            )
+            print("PDFReporter Agent: Chain created")
+
+            # chain_with_sources = {
+            #     "context": retriever | RunnableLambda(parse_docs),
+            #     "question": RunnablePassthrough(),
+            # } | RunnablePassthrough().assign(
+            #     response=(
+            #         RunnableLambda(build_prompt)
+            #         | llm
+            #         | StrOutputParser()
+            #     )
+            # )
+        response = chain.invoke(research_question)  # Execute the chain with the research question as input
+        self.update_state("pdf_report_response", response)  # Update the internal state
+        print(colored(f"PDFReporter Agent Response: {response}", 'green'))  # Output the response
+        return self.state
+

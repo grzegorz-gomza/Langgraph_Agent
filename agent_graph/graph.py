@@ -1,7 +1,7 @@
 import json
 import ast
 from langchain_core.runnables import RunnableLambda
-from langgraph.graph import StateGraph, END
+from langgraph.graph import START, StateGraph, END
 from typing import TypedDict, Annotated
 from langchain_core.messages import HumanMessage
 from models.openai_models import get_open_ai_json
@@ -14,9 +14,10 @@ from agents.agents import (
     ReviewerAgent,
     RouterAgent,
     FinalReportAgent,
-    PDFReporterAgent,
     EndNodeAgent,
 )
+from agents.agents_pdf import PDFReporterAgent
+
 from prompts.prompts import (
     reviewer_prompt_template,
     planner_prompt_template,
@@ -145,8 +146,8 @@ def create_graph(
                 state=state, state_key="reporter_latest"
             ),
             direct_question_response=state["direct_question_response"],
-            pdf_reporter_responce=lambda: get_agent_graph_state(
-                state=state, state_key="pdf_report_response"
+            pdf_report_response=lambda: get_agent_graph_state(
+                state=state, state_key="pdf_report_latest"
             ),
             # planner_agent=planner_prompt_template,
             # selector_agent=selector_prompt_template,
@@ -253,14 +254,21 @@ def create_graph(
 
     def set_graph_entry_point(state: AgentGraphState, graph: StateGraph):
         if state["pdf_loaded"] == None:
-            graph.set_entry_point("direct_question")
+            return False
         else:
-            graph.set_entry_point("pdf_reporter")
-        return graph
+            return True
 
     # Add edges to the graph
-    set_graph_entry_point(state=state, graph=graph)
+    # graph.set_entry_point(START)
     graph.set_finish_point("end")
+
+    # Decide if to start with llm or pdf
+    graph.add_conditional_edges(
+        START,
+        lambda state: set_graph_entry_point(state=state, graph=graph),
+        {True: "pdf_reporter", False: "direct_question"}
+    )
+
     # llm loop
     graph.add_edge("direct_question", "reviewer")
     # pdf loop
@@ -279,7 +287,14 @@ def create_graph(
         lambda state: pass_review(state=state),
     )
 
+
+
+
     graph.add_edge("final_report", "end")
+
+
+    graph.add_edge("final_report", "end")
+
 
     return graph
 
