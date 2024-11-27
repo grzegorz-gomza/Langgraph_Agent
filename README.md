@@ -2,6 +2,11 @@
 # Custom WebSearch Agent with LangGraph
 
 The following repository has been copied and is making modifications to the code, in order to change the operation of the agent and improve the frontend. 
+
+### Agent Schema:
+![Agent Schema - Rebuilded model](schema_diagram/LanGraph_new.png)
+
+
 Below is the original message from the author of the code:
 
 ### Watch the Tutorial:
