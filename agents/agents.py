@@ -20,6 +20,7 @@ from prompts.prompts import (
     reporter_prompt_template,
     reviewer_prompt_template,
     router_prompt_template,
+    final_agent_prompt_template,
     direct_llm_prompt_template
 )
 from utils.helper_functions import get_current_utc_datetime, check_for_content, check_if_pdf_loaded
@@ -159,7 +160,6 @@ class ReporterAgent(Agent):
 
         print(colored(f"Reporter 👨‍💻: {llm_response_content}", 'yellow'))
         self.update_state("reporter_response", llm_response_content)
-        print(reporter_prompt)
         return self.state
 
 class ReviewerAgent(Agent):
@@ -198,7 +198,6 @@ class ReviewerAgent(Agent):
         llm_response_content = llm_response.content
 
         print(colored(f"Reviewer 👩🏽‍⚖️: {llm_response_content}", 'magenta'))
-        print(self.state["pdf_loaded"])
         self.update_state("reviewer_response", llm_response_content)
         return self.state
     
@@ -223,12 +222,30 @@ class RouterAgent(Agent):
         return self.state
 
 class FinalReportAgent(Agent):
-    def invoke(self, final_response=None):
-        # dopisz 2 pozostale zrodla i trzeba nimi zonglowac
-        final_response_value = final_response() if callable(final_response) else final_response
-        llm_response_content = final_response_value.content
+    def invoke(self, research_question, web_report_response=None, pdf_report_response=None, llm_direct_response=None, prompt=final_agent_prompt_template):
+        web_report_response_value = web_report_response() if callable(web_report_response) else web_report_response
+        pdf_report_response_value = pdf_report_response() if callable(pdf_report_response) else pdf_report_response
+        llm_direct_response_value = llm_direct_response() if callable(llm_direct_response) else llm_direct_response
 
-        print(colored(f"Final Report 📝: {llm_response_content}", 'blue'))
+        web_report_response_value = check_for_content(web_report_response_value)
+        pdf_report_response_value = check_for_content(pdf_report_response_value)
+        llm_direct_response_value = check_for_content(llm_direct_response_value)
+
+        final_prompt = prompt.format(direct_question_response=llm_direct_response_value,
+                                    pdf_reporter_response=pdf_report_response_value,
+                                    reporter_response=web_report_response_value,
+                                    datetime=get_current_utc_datetime())
+
+        messages = [
+            {"role": "system", "content": final_prompt},
+            {"role": "user", "content": f"research question: {research_question}"}
+        ]
+
+        llm = self.get_llm(json_model=False)
+        llm_response = llm.invoke(messages)
+        llm_response_content = llm_response.content
+
+        print(colored(f"Final Report 📝: {llm_response_content}", 'light_blue'))
         self.update_state("final_reports", llm_response_content)
         return self.state
 

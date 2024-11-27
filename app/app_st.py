@@ -76,34 +76,21 @@ class ChatWorkflow:
         limit = {"recursion_limit": self.recursion_limit}
         reporter_state = None
         for event in self.workflow.stream(dict_inputs, limit):
-            next_agent = ""
-            if "router" in event.keys():
-                state = event["router"]
-                reviewer_state = state["router_response"]
-                reviewer_state_dict = json.loads(reviewer_state)
-                next_agent_value = reviewer_state_dict["next_agent"]
-                if isinstance(next_agent_value, list):
-                    next_agent = next_agent_value[-1]
-                else:
-                    next_agent = next_agent_value
+            # next_agent = ""
+            # if "router" in event.keys():
+            #     state = event["router"]
+            #     reviewer_state = state["router_response"]
+            #     reviewer_state_dict = json.loads(reviewer_state)
+            #     next_agent_value = reviewer_state_dict["next_agent"]
+            #     if isinstance(next_agent_value, list):
+            #         next_agent = next_agent_value[-1]
+            #     else:
+            #         next_agent = next_agent_value
 
-            if next_agent == "final_report":
-                router_responce = event["router"]["router_response"]
-                llm_responce = state["direct_question_response"]
-                if isinstance(router_responce, list) and router_responce != []:
-                    output = router_responce[-1]
-                    return output.content if output else "No report available"
-                else:
-                    return llm_responce[-1].content if llm_responce else "No answer available"
-                # state = event["router"]
-                # reporter_state = state["reporter_response"]
-                # if isinstance(reporter_state, list) and reporter_state != []:
-                #     reporter_state = reporter_state[-1]
-                #     return (
-                #         reporter_state.content if reporter_state else "No report available"
-                #     )
-                # else:
-                #     return state["direct_question_response"].content
+            if "final_report" in event.keys():
+                final_answer = event["final_report"]["final_reports"]
+                return final_answer
+
 
         return "Workflow did not reach final report"
 
@@ -144,7 +131,6 @@ def main():
                         st.session_state.pdf_loaded = tmp_file.name
                         tmp_file.close()
                     st.success("PDF uploaded successfully", icon="✅")
-                    print("path:", st.session_state.pdf_loaded)
                 except Exception as e:
                     st.error("PDF upload failed", icon="❌")
                 
@@ -157,7 +143,7 @@ def main():
         )
 
         recursion_limit = st.number_input(
-            "Recursion limit:", min_value=1, value=5, key="recursion_limit"
+            "Recursion limit:", min_value=1, value=10, key="recursion_limit"
         )
 
         api_key = st.text_input("Give your API Key:", key="api_key")

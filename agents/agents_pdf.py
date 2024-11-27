@@ -11,6 +11,7 @@ from langchain.retrievers.multi_vector import MultiVectorRetriever
 
 import os
 import uuid
+import json
 from base64 import b64decode
 from unstructured.partition.pdf import partition_pdf
 
@@ -29,71 +30,11 @@ from vectorstore.vectorstore import VectorStoreManager
 config_path = os.path.join(os.path.dirname(__file__), "..", "config", "config.yaml")
 load_config(config_path)
 
-# class TextSummaryAgent(Agent):
-#     def invoke(self, extracted_text, prompt=pdf_text_summary_prompt_template):
-#         text_summary_prompt = prompt.format(
-#             datetime=get_current_utc_datetime()
-#         )
-
-#         messages = ChatPromptTemplate.from_template(text_summary_prompt)
-
-#         llm = self.get_llm()
-#         summarize_chain = {"extracted_text": lambda x: x} | messages | llm | StrOutputParser()
-#         text_summaries = summarize_chain.batch(extracted_text, {"max_concurrency": 3})
-
-#         print(colored(f"Text Summary : {text_summaries}", 'red'))
-#         return text_summaries
-
-
-# class TableSummaryAgent(Agent):
-#     def invoke(self, extracted_table, prompt=pdf_table_summary_prompt_template):
-#         table_summary_prompt = prompt.format(
-#             datetime=get_current_utc_datetime()
-#         )
-
-#         messages = ChatPromptTemplate.from_template(table_summary_prompt)
-
-#         llm = self.get_llm()
-#         summarize_chain = {"extracted_table": lambda x: x} | messages | llm | StrOutputParser()
-#         tables_summaries = summarize_chain.batch(extracted_table, {"max_concurrency": 3})
-
-#         print(colored(f"Table Summary : {tables_summaries}", 'Yellow'))
-#         return tables_summaries
-
-# class ImageSummaryAgent(Agent):
-#     def invoke(self, extracted_images, prompt=pdf_image_summary_prompt_template):
-#         image_summary_prompt = prompt.format(
-#             datetime=get_current_utc_datetime()
-#         )
-        
-#         messages = [
-#             (
-#                 "user",
-#                 [
-#                     {"type": "text", "text": image_summary_prompt},
-#                     {
-#                         "type": "image_url",
-#                         "image_url": {"url": "data:image/jpeg;base64,{image}"},
-#                     },
-#                 ],
-#             )
-#         ]
-
-#         prompt = ChatPromptTemplate.from_messages(messages)
-
-#         llm = self.get_llm()
-#         summarize_chain = prompt | llm | StrOutputParser()
-#         images_summaries = summarize_chain.batch(extracted_images)
-
-#         print(colored(f"Table Summary : {images_summaries}", 'Pink'))
-#         return images_summaries
-
-
-
-
-
-
 class PDFReporterAgent(Agent):
+    def __init__(self,retriever=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.retriever = retriever
+
     def extract_pdf_elements(self, file_path):
         chunks = partition_pdf(
             filename=file_path,
@@ -210,16 +151,17 @@ class PDFReporterAgent(Agent):
         print(colored(f"Retriever created", 'green'))
         return vectorstore_manager
 
-    # def parse_docs(self, docs):
-    #     b64 = []
-    #     text = []
-    #     for doc in docs:
-    #         if isinstance(doc, Document) and doc.page_content.startswith("data:image"): # Sprawdzenie czy to base64
-    #             b64.append(doc.page_content.split(",")[1]) # Dodanie tylko zakodowanej części
-    #         elif isinstance(doc, Document):
-    #             text.append(doc.page_content)
-    #     return {"images": b64, "texts": text}
-
+    def create_retriever(self, file_path=None):
+        if self.retriever is None and file_path is not None:
+            vectorstore_manager = self.pdf_extraction_tool(file_path=file_path)  # Build vector store
+            self.retriever = vectorstore_manager.get_runnable_retriever()
+            print("PDFReporter Agent: Retriever created")
+            return self.retriever
+        elif self.retriever is not None and file_path is not None:
+            return self.retriever
+        else:
+            print("Retriever has not been created. Please run create_vectorstore() first.")
+        
     def parse_docs(self, docs):
         """Split base64-encoded images and texts"""
         b64 = []
@@ -274,16 +216,8 @@ class PDFReporterAgent(Agent):
         print("Question:", input_dict.get("question"))
         return input_dict  # Ważne, aby zwrócić dane w niezmienionej postaci
 
-    def invoke(self, research_question, file_path = None, retriever=None):
-        if retriever is None and file_path is not None:
-            vectorstore_manager = self.pdf_extraction_tool(file_path=file_path)  # Build vector store
-            retriever = vectorstore_manager.get_runnable_retriever()
-            print("PDFReporter Agent: Retriever created")
-        elif not retriever:
-            print("PDFReporter Agent: No file path provided and no retriever passed. Please provide either a file path or a retriever.")
-
-        
-        
+    def invoke(self, research_question, file_path = None):
+        retriever = self.create_retriever(file_path)
         if retriever:
             llm = self.get_llm()
             print("PDFReporter Agent: LLM created")
@@ -311,7 +245,11 @@ class PDFReporterAgent(Agent):
             #     )
             # )
         response = chain.invoke(research_question)  # Execute the chain with the research question as input
-        self.update_state("pdf_report_response", response)  # Update the internal state
-        print(colored(f"PDFReporter Agent Response: {response}", 'green'))  # Output the response
+        if isinstance(response, HumanMessage):
+            responce_content = json.loads(json.dumps(response.content, ensure_ascii=False, indent=4))
+        else:
+            responce_content = json.loads(json.dumps(response, ensure_ascii=False, indent=4))
+        self.update_state("pdf_report_response", responce_content)  # Update the internal state
+        print(colored(f"PDFReporter Agent Response: {responce_content} \nType: {type(responce_content)}", 'green'))  # Output the response
         return self.state
 

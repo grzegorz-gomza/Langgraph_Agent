@@ -25,6 +25,7 @@ from prompts.prompts import (
     reporter_prompt_template,
     router_prompt_template,
     direct_llm_prompt_template,
+    final_agent_prompt_template,
     reviewer_guided_json,
     selector_guided_json,
     planner_guided_json,
@@ -219,15 +220,30 @@ def create_graph(
 
     graph.add_node(
         "final_report",
-        lambda state: FinalReportAgent(state=state).invoke(
-            final_response=lambda: get_agent_graph_state(
-                state=state, state_key="reporter_latest"
-            )
+        lambda state: FinalReportAgent(
+                state=state,
+                model=model,
+                server=server,
+                guided_json=None,
+                stop=stop,
+                model_endpoint=model_endpoint,
+                temperature=temperature
+            ).invoke(
+            research_question=state["research_question"],
+            web_report_response=lambda: get_agent_graph_state(
+                state=state, state_key="reporter_latest"),
+            pdf_report_response=lambda: get_agent_graph_state(
+                state=state, state_key="pdf_report_latest"),
+            llm_direct_response=state["direct_question_response"],
+            prompt=final_agent_prompt_template
         ),
     )
 
+
+
     graph.add_node("end", lambda state: EndNodeAgent(state).invoke())
 
+    # Define the edges in the agent graph
     # Define the edges in the agent graph
     def pass_review(state: AgentGraphState):
         review_list = state["router_response"]
@@ -241,12 +257,9 @@ def create_graph(
                 review_content = review.content
             else:
                 review_content = review
-
-            if state["direct_question_response"] != "" and state["planner_response"] == []:
-                next_agent = "planner"
-            else:
-                review_data = json.loads(review_content)
-                next_agent = review_data["next_agent"]
+            
+            review_data = json.loads(review_content)
+            next_agent = review_data["next_agent"]
         else:
             next_agent = "end"
 
