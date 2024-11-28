@@ -1,6 +1,3 @@
-# import json
-# import yaml
-# import os
 from termcolor import colored
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
@@ -9,11 +6,11 @@ from langchain_core.prompts import ChatPromptTemplate
 from base64 import b64decode
 
 from models.openai_models import get_open_ai, get_open_ai_json
-from models.ollama_models import OllamaModel, OllamaJSONModel
-from models.vllm_models import VllmJSONModel, VllmModel
-from models.groq_models import GroqModel, GroqJSONModel
-from models.claude_models import ClaudModel, ClaudJSONModel
-from models.gemini_models import GeminiModel, GeminiJSONModel
+# from models.ollama_models import OllamaModel, OllamaJSONModel
+# from models.vllm_models import VllmJSONModel, VllmModel
+# from models.groq_models import GroqModel, GroqJSONModel
+# from models.claude_models import ClaudModel, ClaudJSONModel
+# from models.gemini_models import GeminiModel, GeminiJSONModel
 from prompts.prompts import (
     planner_prompt_template,
     selector_prompt_template,
@@ -38,45 +35,45 @@ class Agent:
     def get_llm(self, json_model=True):
         if self.server == 'openai':
             return get_open_ai_json(model=self.model, temperature=self.temperature) if json_model else get_open_ai(model=self.model, temperature=self.temperature)
-        if self.server == 'ollama':
-            return OllamaJSONModel(model=self.model, temperature=self.temperature) if json_model else OllamaModel(model=self.model, temperature=self.temperature)
-        if self.server == 'vllm':
-            return VllmJSONModel(
-                model=self.model, 
-                guided_json=self.guided_json,
-                stop=self.stop,
-                model_endpoint=self.model_endpoint,
-                temperature=self.temperature
-            ) if json_model else VllmModel(
-                model=self.model,
-                model_endpoint=self.model_endpoint,
-                stop=self.stop,
-                temperature=self.temperature
-            )
-        if self.server == 'groq':
-            return GroqJSONModel(
-                model=self.model,
-                temperature=self.temperature
-            ) if json_model else GroqModel(
-                model=self.model,
-                temperature=self.temperature
-            )
-        if self.server == 'claude':
-            return ClaudJSONModel(
-                model=self.model,
-                temperature=self.temperature
-            ) if json_model else ClaudModel(
-                model=self.model,
-                temperature=self.temperature
-            )
-        if self.server == 'gemini':
-            return GeminiJSONModel(
-                model=self.model,
-                temperature=self.temperature
-            ) if json_model else GeminiModel(
-                model=self.model,
-                temperature=self.temperature
-            )      
+        # if self.server == 'ollama':
+        #     return OllamaJSONModel(model=self.model, temperature=self.temperature) if json_model else OllamaModel(model=self.model, temperature=self.temperature)
+        # if self.server == 'vllm':
+        #     return VllmJSONModel(
+        #         model=self.model, 
+        #         guided_json=self.guided_json,
+        #         stop=self.stop,
+        #         model_endpoint=self.model_endpoint,
+        #         temperature=self.temperature
+        #     ) if json_model else VllmModel(
+        #         model=self.model,
+        #         model_endpoint=self.model_endpoint,
+        #         stop=self.stop,
+        #         temperature=self.temperature
+        #     )
+        # if self.server == 'groq':
+        #     return GroqJSONModel(
+        #         model=self.model,
+        #         temperature=self.temperature
+        #     ) if json_model else GroqModel(
+        #         model=self.model,
+        #         temperature=self.temperature
+        #     )
+        # if self.server == 'claude':
+        #     return ClaudJSONModel(
+        #         model=self.model,
+        #         temperature=self.temperature
+        #     ) if json_model else ClaudModel(
+        #         model=self.model,
+        #         temperature=self.temperature
+        #     )
+        # if self.server == 'gemini':
+        #     return GeminiJSONModel(
+        #         model=self.model,
+        #         temperature=self.temperature
+        #     ) if json_model else GeminiModel(
+        #         model=self.model,
+        #         temperature=self.temperature
+        #     )      
 
     def update_state(self, key, value):
         self.state = {**self.state, key: value}

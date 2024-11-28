@@ -49,7 +49,6 @@ def create_graph(
             state=state,
             model=model,
             server=server,
-            # guided_json=direct_llm_guided_json,
             stop=stop,
             model_endpoint=model_endpoint,
             temperature=temperature,
@@ -74,7 +73,6 @@ def create_graph(
             feedback=lambda: get_agent_graph_state(
                 state=state, state_key="reviewer_latest"
             ),
-            # previous_plans=lambda: get_agent_graph_state(state=state, state_key="planner_all"),
             prompt=planner_prompt_template,
         ),
     )
@@ -141,8 +139,6 @@ def create_graph(
             feedback=lambda: get_agent_graph_state(
                 state=state, state_key="reviewer_all"
             ),
-            # planner=lambda: get_agent_graph_state(state=state, state_key="planner_latest"),
-            # selector=lambda: get_agent_graph_state(state=state, state_key="selector_latest"),
             reporter=lambda: get_agent_graph_state(
                 state=state, state_key="reporter_latest"
             ),
@@ -150,10 +146,6 @@ def create_graph(
             pdf_report_response=lambda: get_agent_graph_state(
                 state=state, state_key="pdf_report_latest"
             ),
-            # planner_agent=planner_prompt_template,
-            # selector_agent=selector_prompt_template,
-            # reporter_agent=reporter_prompt_template,
-            # serp=lambda: get_agent_graph_state(state=state, state_key="serper_latest"),
             prompt=reviewer_prompt_template,
         ),
     )
@@ -173,13 +165,6 @@ def create_graph(
             feedback=lambda: get_agent_graph_state(
                 state=state, state_key="reviewer_all"
             ),
-            # planner=lambda: get_agent_graph_state(state=state, state_key="planner_latest"),
-            # selector=lambda: get_agent_graph_state(state=state, state_key="selector_latest"),
-            # reporter=lambda: get_agent_graph_state(state=state, state_key="reporter_latest"),
-            # planner_agent=planner_prompt_template,
-            # selector_agent=selector_prompt_template,
-            # reporter_agent=reporter_prompt_template,
-            # serp=lambda: get_agent_graph_state(state=state, state_key="serper_latest"),
             prompt=router_prompt_template,
         ),
     )
@@ -244,7 +229,6 @@ def create_graph(
     graph.add_node("end", lambda state: EndNodeAgent(state).invoke())
 
     # Define the edges in the agent graph
-    # Define the edges in the agent graph
     def pass_review(state: AgentGraphState):
         review_list = state["router_response"]
         if review_list:
@@ -272,8 +256,7 @@ def create_graph(
             return True
 
     # Add edges to the graph
-    # graph.set_entry_point(START)
-    graph.set_finish_point("end")
+
 
     # Decide if to start with llm or pdf
     graph.add_conditional_edges(
@@ -281,7 +264,9 @@ def create_graph(
         lambda state: set_graph_entry_point(state=state, graph=graph),
         {True: "pdf_reporter", False: "direct_question"}
     )
+    
 
+    
     # llm loop
     graph.add_edge("direct_question", "reviewer")
     # pdf loop
@@ -299,15 +284,9 @@ def create_graph(
         "router",
         lambda state: pass_review(state=state),
     )
-
-
-
-
     graph.add_edge("final_report", "end")
 
-
-    graph.add_edge("final_report", "end")
-
+    graph.set_finish_point("end")
 
     return graph
 

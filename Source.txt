@@ -1,2 +1,7 @@
+Langgraph:
 https://github.com/john-adeojo/graph_websearch_agent
 https://www.youtube.com/watch?v=R-o_a6dvzQM
+
+pdf:
+https://www.youtube.com/watch?v=uLrReyH5cu0
+https://colab.research.google.com/gist/alejandro-ao/47db0b8b9d00b10a96ab42dd59d90b86/langchain-multimodal.ipynb#scrollTo=771a47fa-1267-4db8-a6ae-5fde48bbc069

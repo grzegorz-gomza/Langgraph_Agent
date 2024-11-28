@@ -103,4 +103,4 @@ class VectorStoreManager:
         if self.retriever is None:
             raise ValueError("Retriever has not been created. Please run create_vectorstore() first.")  # Throw error if retriever is missing
         print("Retriever type:", type(self.retriever))
-        return self.retriever #.as_retriever()  # Convert retriever to a Runnable-compatible object
+        return self.retriever 
