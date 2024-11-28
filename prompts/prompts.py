@@ -164,47 +164,118 @@ Current date and time:
 # """
 
 reviewer_prompt_template = """
-You are a reviewer. Your task is to review the response coming from three different sources.
-The first resource is the direct answer from an LLM.
-the second resource is the response from a pdf_reporter.
-The second resource is the response from the web_reporter.
+You are a reviewer. Your task is to review the responses coming from three different sources:
+1. The direct answer from an LLM.
+2. The response provided by a pdf_reporter.
+3. The response provided by a web_reporter.
 
-Your task is to review the responses from the three sources to the research question and provide feedback.
-It is possible, that not all three of the responses are present. If this is the case, you have to ignore the missing responses.
+Your task is to evaluate the responses provided to the research question and determine whether the gathered information is sufficient, accurate, and relevant. While evaluating, please follow these specific instructions:
 
-Here is the llm's response:
-llm's response: {direct_question_response}
+1. **Prioritize sufficiency and relevance:**  
+    - If an adequate and relevant answer is already provided by the pdf_reporter, there is no need to recommend additional searches or improvements for other sources unless critical information is missing or wrong.  
+    - Similarly, if the direct LLM response sufficiently and accurately answers the question, there is no need to evaluate or recommend additional context from the web_reporter unless required to verify or enhance the correctness of the information.
+    - Planer is needed when the additional information from the internet are required to answer the question.
+    - If the information provided by the web_reporter is sufficient, there is no need to evaluate or recommend additional context from the pdf_reporter.
+    
+2. **Assess missing or incorrect responses:**  
+    - If a provided response is absent (e.g., either the LLM, pdf_reporter, or web_reporter did not generate a response), clearly state whether the missing response impacts the completeness or quality of the overall answer.
+    - Do not recommend improving a provided response unnecessarily if it has already adequately answered the research question.
 
-Here is the pdf_reporter's response:
-pdf_reporter's response: {pdf_report_response}
+3. **Provide specific and actionable feedback:**  
+    - If an answer fails your review, explain exactly what is needed to improve.
+    - Avoid suggesting improvements just to enhance minor details if they do not impact the core of the research question.
 
-Here is the reporter's response:
-Reportr's response: {reporter}
+4. **Check for errors in data gathering:**  
+    - For pdf_reporter and web_reporter responses, verify that the data was gathered appropriately with no apparent inconsistencies or errors.
 
-Your feedback should include reasons for passing or failing the review and suggestions for improvement. Be specific in your feedback.
-Take into consideration, if the data gathered from the pdf_reporter and the reporter (web search) are gathered correctly without error during the process. 
+5. **Be aware of the system loop:**
+    First loop:
+    - If pdf file is provided, the pdf_reporter will be the only one, which start to try to answer the question. 
+    - If no pdf file is provided, the web reporter will start to try to answer the question.
+    - In first loop one of the sources will be provided to you - reviewer. 
+    - If you decide to pass the review, the loop will end until next query.
+    Next loops:
+    - Second loop starts always with a web_reporter and web_search. Next agent - router - have to always choose "planer" as next agent in the second loop.
+    - if you have not decided to pass the review in the previous loop (check the state) you will have to review more then one source. 
+    - The loop will continue until you decide to pass the review.
+    - If no pdf file is provided and the feedback tells to find information in pdf file - it is not possible to find information in pdf. In that case use web_reporter to try to answer the question and ignore the missing pdf_responce
+    - If no pdf file is provided and the feedback tells to find information in web search - it is possible due to web_reporter.
+    - It is always possible to find information in web search.
+Here is the given information:
 
-You should consider the previous feedback you have given when providing new feedback.
-Feedback: {feedback}
+LLM's response:  
+{direct_question_response}
 
-Current date and time:
+PDF_reporter's response:  
+{pdf_report_response}
+
+Web_reporter's response:  
+{reporter}
+
+Your feedback should provide reasons for passing or failing the review for each source and offer specific suggestions for improvement only where necessary. Your feedback must align with the principle of avoiding redundant work and unnecessary suggestions when a response is already sufficient.
+
+Current date and time:  
 {datetime}
 
-You should be aware of what the previous agents have done. You can see this in the satet of the agents:
-State of the agents: {state}
+State of the agents:  
+{state}
 
-Your response must take the following json format:
+Your response must take the following JSON format:
 
-    "direct_question_response": "Copy the llm's response here",
+    "direct_question_response": "Copy the LLM's response here",
     "pdf_reporter_response": "Copy the pdf_reporter's response here",
-    "reporter_response": "Copy the reporter's response here",
-    "feedback": "If the response fails your review, provide precise feedback on what is required to pass the review.",
+    "reporter_response": "Copy the web_reporter's response here",
+    "feedback": "Provide precise feedback here, including reasons for passing or failing the evaluation and necessary improvements, only if required.",
     "pass_review": "True/False",
     "comprehensive": "True/False",
     "citations_provided": "True/False",
-    "relevant_to_research_question": "True/False",
+    "relevant_to_research_question": "True/False"
 
 """
+
+
+# reviewer_prompt_template_old = """
+# You are a reviewer. Your task is to review the response coming from three different sources.
+# The first resource is the direct answer from an LLM.
+# the second resource is the response from a pdf_reporter.
+# The second resource is the response from the web_reporter.
+
+# Your task is to review the responses from the three sources to the research question and provide feedback.
+# It is possible, that not all three of the responses are present. If this is the case, you have to ignore the missing responses.
+
+# Here is the llm's response:
+# llm's response: {direct_question_response}
+
+# Here is the pdf_reporter's response:
+# pdf_reporter's response: {pdf_report_response}
+
+# Here is the reporter's response:
+# Reportr's response: {reporter}
+
+# Your feedback should include reasons for passing or failing the review and suggestions for improvement. Be specific in your feedback.
+# Take into consideration, if the data gathered from the pdf_reporter and the reporter (web search) are gathered correctly without error during the process. 
+
+# You should consider the previous feedback you have given when providing new feedback.
+# Feedback: {feedback}
+
+# Current date and time:
+# {datetime}
+
+# You should be aware of what the previous agents have done. You can see this in the satet of the agents:
+# State of the agents: {state}
+
+# Your response must take the following json format:
+
+#     "direct_question_response": "Copy the llm's response here",
+#     "pdf_reporter_response": "Copy the pdf_reporter's response here",
+#     "reporter_response": "Copy the reporter's response here",
+#     "feedback": "If the response fails your review, provide precise feedback on what is required to pass the review.",
+#     "pass_review": "True/False",
+#     "comprehensive": "True/False",
+#     "citations_provided": "True/False",
+#     "relevant_to_research_question": "True/False",
+
+# """
 
 
 reviewer_guided_json = {
@@ -411,3 +482,22 @@ direct_llm_guided_json = {
     },
     "required": ["research_query", "direct_question_response",]
 }
+
+final_agent_prompt_template = """
+You will be given a reports from three diferent sources.
+Your task is to review the responses from the three sources to the research question and decide about final answer. 
+It is possible, that not all three of the responses are present. If this is the case, you have to ignore the missing responses.
+In your answer, don't mention about the sources. Just give the final answer. It is totaly fine, if you decide to copy the answer from one of the sources if it answers the querstion.
+
+First source is a LLM:
+llm's response: {direct_question_response}
+
+Second source is a pdf_reporter:
+pdf_reporter's response: {pdf_reporter_response}
+
+Third source is a reporter which have searched for the answer in internet:
+reporter's response: {reporter_response}
+
+Current date and time:
+{datetime}
+"""
