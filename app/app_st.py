@@ -4,7 +4,16 @@ import json
 import yaml
 import tempfile
 
-from ..agent_graph.graph import create_graph, compile_workflow
+import sys
+import os
+
+# Adding the parent directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
+from agent_graph.graph import create_graph, compile_workflow
 
 def update_config(
     serper_api_key,
