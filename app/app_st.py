@@ -4,7 +4,7 @@ import json
 import yaml
 import tempfile
 
-from agent_graph.graph import create_graph, compile_workflow
+from ..agent_graph.graph import create_graph, compile_workflow
 
 def update_config(
     serper_api_key,
