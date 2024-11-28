@@ -116,53 +116,6 @@ Current date and time:
 {datetime}
 """
 
-# reviewer_prompt_template = """
-
-# You are a reviewer. Your task is to review the reporter's response to the research question and provide feedback. 
-
-# Your feedback should include reasons for passing or failing the review and suggestions for improvement. You must also 
-# recommend the next agent to route the conversation to, based on your feedback. Choose one of the following: planner,
-# selector, reporter, or final_report. If you pass the review, you MUST select "final_report".
-
-# Consider the previous agents' work and responsibilities:
-# Previous agents' work:
-# planner: {planner}
-# selector: {selector}
-# reporter: {reporter}
-
-# If you need to run different searches, get a different SERP, find additional information, you should route the conversation to the planner.
-# If you need to find a different source from the existing SERP, you should route the conversation to the selector.
-# If you need to improve the formatting or style of response, you should route the conversation to the reporter.
-
-# here are the agents' responsibilities to guide you with routing and feedback:
-# Agents' responsibilities:
-# planner: {planner_responsibilities}
-# selector: {selector_responsibilities}
-# reporter: {reporter_responsibilities}
-
-# You should consider the SERP the selector used, 
-# this might impact your decision on the next agent to route the conversation to and any feedback you present.
-# SERP: {serp}
-
-# You should consider the previous feedback you have given when providing new feedback.
-# Feedback: {feedback}
-
-# Current date and time:
-# {datetime}
-
-# You must present your feedback in the following json format:
-
-#     "feedback": "Your feedback here. Provide precise instructions for the agent you are passing the conversation to.",
-#     "pass_review": "True/False",
-#     "comprehensive": "True/False",
-#     "citations_provided": "True/False",
-#     "relevant_to_research_question": "True/False",
-#     "suggest_next_agent": "one of the following: planner/selector/reporter/final_report"
-
-# Remeber, you are the only agent that can route the conversation to any agent you see fit.
-
-# """
-
 reviewer_prompt_template = """
 You are a reviewer. Your task is to review the responses coming from three different sources:
 1. The direct answer from an LLM.
@@ -234,50 +187,6 @@ Your response must take the following JSON format:
 """
 
 
-# reviewer_prompt_template_old = """
-# You are a reviewer. Your task is to review the response coming from three different sources.
-# The first resource is the direct answer from an LLM.
-# the second resource is the response from a pdf_reporter.
-# The second resource is the response from the web_reporter.
-
-# Your task is to review the responses from the three sources to the research question and provide feedback.
-# It is possible, that not all three of the responses are present. If this is the case, you have to ignore the missing responses.
-
-# Here is the llm's response:
-# llm's response: {direct_question_response}
-
-# Here is the pdf_reporter's response:
-# pdf_reporter's response: {pdf_report_response}
-
-# Here is the reporter's response:
-# Reportr's response: {reporter}
-
-# Your feedback should include reasons for passing or failing the review and suggestions for improvement. Be specific in your feedback.
-# Take into consideration, if the data gathered from the pdf_reporter and the reporter (web search) are gathered correctly without error during the process. 
-
-# You should consider the previous feedback you have given when providing new feedback.
-# Feedback: {feedback}
-
-# Current date and time:
-# {datetime}
-
-# You should be aware of what the previous agents have done. You can see this in the satet of the agents:
-# State of the agents: {state}
-
-# Your response must take the following json format:
-
-#     "direct_question_response": "Copy the llm's response here",
-#     "pdf_reporter_response": "Copy the pdf_reporter's response here",
-#     "reporter_response": "Copy the reporter's response here",
-#     "feedback": "If the response fails your review, provide precise feedback on what is required to pass the review.",
-#     "pass_review": "True/False",
-#     "comprehensive": "True/False",
-#     "citations_provided": "True/False",
-#     "relevant_to_research_question": "True/False",
-
-# """
-
-
 reviewer_guided_json = {
     "type": "object",
     "properties": {
@@ -336,7 +245,7 @@ you must provide your response in the following json format:
         "reason": "Reason for selecting the next agent"
     
 """
-# - **reporter**: If the report formatting or style needs improvement, or if the response lacks clarity or comprehensiveness.
+
 router_guided_json = {
     "type": "object",
     "properties": {
@@ -462,11 +371,6 @@ You are a helpful Assistent. Give the answer to the given question.
 Current date and time:
 {datetime}
 """
-# Your response must take the following json format:
-
-#     "research_query": "Given question"
-#     "direct_question_response": "Your Answer"
-
 
 direct_llm_guided_json = {
     "type": "object",

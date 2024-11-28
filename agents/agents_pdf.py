@@ -3,7 +3,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_community.vectorstores import Chroma
 from langchain.storage import InMemoryStore
 from langchain.schema.document import Document
 from langchain_openai import OpenAIEmbeddings
@@ -244,6 +243,7 @@ class PDFReporterAgent(Agent):
             #         | StrOutputParser()
             #     )
             # )
+            
         response = chain.invoke(research_question)  # Execute the chain with the research question as input
         if isinstance(response, HumanMessage):
             responce_content = json.loads(json.dumps(response.content, ensure_ascii=False, indent=4))
@@ -252,4 +252,3 @@ class PDFReporterAgent(Agent):
         self.update_state("pdf_report_response", responce_content)  # Update the internal state
         print(colored(f"PDFReporter Agent Response: {responce_content} \nType: {type(responce_content)}", 'green'))  # Output the response
         return self.state
-
