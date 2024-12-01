@@ -296,9 +296,6 @@ Here is the table:
 You must provide your response in the following json format:
 
     "table_summary": "The summary of the text chunk"
-
-Current date and time:
-{datetime}
 """
 
 pdf_table_summary_guided_json = {
@@ -319,9 +316,6 @@ You should provide a summary that is concise and clear, highlighting the main po
 You must provide your response in the following json format:
 
     "image_summary": "The summary of the image"
-
-Current date and time:
-{datetime}
 """
 
 pdf_image_summary_guided_json = {
