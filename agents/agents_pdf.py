@@ -42,9 +42,9 @@ class PDFReporterAgent(Agent):
             extract_image_block_types=["Image"],
             extract_image_block_to_payload=True,
             chunking_strategy="by_title",
-            max_characters=5000,
-            combine_text_under_n_chars=1000,
-            new_after_n_chars=3000,
+            max_characters=10000,
+            combine_text_under_n_chars=2000,
+            new_after_n_chars=6000,
         )
         return chunks
 
