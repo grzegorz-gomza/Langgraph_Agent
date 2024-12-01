@@ -151,7 +151,7 @@ Your task is to evaluate the responses provided to the research question and det
     - Second loop starts always with a web_reporter and web_search. Next agent - router - have to always choose "planer" as next agent in the second loop.
     - if you have not decided to pass the review in the previous loop (check the state) you will have to review more then one source. 
     - The loop will continue until you decide to pass the review.
-    - If no pdf file is provided and the feedback tells to find information in pdf file - it is not possible to find information in pdf. In that case use web_reporter to try to answer the question and ignore the missing pdf_responce
+    - If no pdf file is provided and the feedback tells to find information in pdf file - it is not possible to find information in pdf. In that case use web_reporter to try to answer the question and ignore the missing pdf_response
     - If no pdf file is provided and the feedback tells to find information in web search - it is possible due to web_reporter.
     - It is always possible to find information in web search.
 Here is the given information:

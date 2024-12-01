@@ -246,9 +246,9 @@ class PDFReporterAgent(Agent):
             
         response = chain.invoke(research_question)  # Execute the chain with the research question as input
         if isinstance(response, HumanMessage):
-            responce_content = json.loads(json.dumps(response.content, ensure_ascii=False, indent=4))
+            response_content = json.loads(json.dumps(response.content, ensure_ascii=False, indent=4))
         else:
-            responce_content = json.loads(json.dumps(response, ensure_ascii=False, indent=4))
-        self.update_state("pdf_report_response", responce_content)  # Update the internal state
-        print(colored(f"PDFReporter Agent Response: {responce_content} \nType: {type(responce_content)}", 'green'))  # Output the response
+            response_content = json.loads(json.dumps(response, ensure_ascii=False, indent=4))
+        self.update_state("pdf_report_response", response_content)  # Update the internal state
+        print(colored(f"PDFReporter Agent Response: {response_content} \nType: {type(response_content)}", 'green'))  # Output the response
         return self.state

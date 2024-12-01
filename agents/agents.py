@@ -168,18 +168,18 @@ class ReviewerAgent(Agent):
                     feedback=None):
         reporter_value = reporter() if callable(reporter) else reporter
         direct_question_response_value = direct_question_response() if callable(direct_question_response) else direct_question_response
-        pdf_reporter_responce_value = pdf_report_response() if callable(pdf_report_response) else pdf_report_response
+        pdf_reporter_response_value = pdf_report_response() if callable(pdf_report_response) else pdf_report_response
         feedback_value = feedback() if callable(feedback) else feedback
 
         reporter_value = check_for_content(reporter_value)
         direct_question_response_value = check_for_content(direct_question_response_value)
-        pdf_reporter_responce_value = check_for_content(pdf_reporter_responce_value)
+        pdf_reporter_response_value = check_for_content(pdf_reporter_response_value)
         feedback_value = check_for_content(feedback_value)
         
         reviewer_prompt = prompt.format(
             reporter=reporter_value,
             direct_question_response=direct_question_response_value,
-            pdf_report_response=pdf_reporter_responce_value,
+            pdf_report_response=pdf_reporter_response_value,
             state=self.state,
             feedback=feedback_value,
             datetime=get_current_utc_datetime(),

@@ -18,16 +18,16 @@ class ClaudModel:
         system = messages[0]["content"]
         user = messages[1]["content"]
         
-        responce = self.client.messages.create(
+        response = self.client.messages.create(
             model=self.model,
             max_tokens=4096,
             messages=[
                 {"role": "user", "content": f"System message: {system}. User message: {user}"},
             ]
         )
-        print(responce)
-        print(responce.content)
-        return responce.content
+        print(response)
+        print(response.content)
+        return response.content
 
         
 
